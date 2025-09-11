@@ -14,7 +14,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        user = User.objects.create_user(**validated_data)
+        # Ensure a username value (required by AbstractUser)
+        email = validated_data.get("email")
+        username = email
+        user = User.objects.create_user(username=username, **validated_data)
         user.set_password(password)
         user.save()
         return user

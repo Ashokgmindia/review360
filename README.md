@@ -14,11 +14,17 @@ JWT login endpoints:
    docker compose exec web python manage.py migrate
    docker compose exec web python manage.py createsuperuser
    ```
-### Registration
-- `POST /api/auth/register/` with JSON:
+### User provisioning (admin-only)
+1) Create a superuser:
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+2) Authenticate as superuser, then create users via:
+- `POST /api/auth/register/` (admin-only) with JSON:
   ```json
   {"email":"user@example.com","password":"<min 8 chars>","first_name":"","last_name":""}
   ```
+  Include bearer token from superuser login in the `Authorization: Bearer <access>` header.
 
 3. Access: `http://localhost:8000/`
 
