@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     "accounts",
+    "colleges",
 ]
 
 MIDDLEWARE = [
