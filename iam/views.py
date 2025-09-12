@@ -6,8 +6,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .serializers import RegisterSerializer, EmailTokenObtainSerializer
-from .models import College
+from .serializers import RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer
+from .models import College, User
 from .serializers import RegisterSerializer
 from rest_framework import serializers
 
@@ -42,21 +42,6 @@ class RegisterView(generics.CreateAPIView):
         return super().post(request, *args, **kwargs)
 
 
-class CollegeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = College
-        fields = [
-            "id",
-            "name",
-            "code",
-            "address",
-            "contact_email",
-            "contact_phone",
-            "is_active",
-        ]
-        read_only_fields = ["id"]
-
-
 @extend_schema_view(
     list=extend_schema(tags=["IAM"]),
     retrieve=extend_schema(tags=["IAM"]),
@@ -73,6 +58,30 @@ class CollegeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active", "code"]
     search_fields = ["name", "code", "address", "contact_email", "contact_phone"]
     ordering_fields = ["name", "code", "is_active"]
+
+    def perform_create(self, serializer):
+        # Only superadmins can create colleges
+        if getattr(self.request.user, "role", None) != User.Role.SUPERADMIN:
+            raise serializers.ValidationError({"detail": "Only Super Admin can create colleges."})
+        college = serializer.save()
+
+    def perform_update(self, serializer):
+        college = serializer.save()
+        admin = college.admin
+        if admin is not None:
+            admin.role = User.Role.COLLEGE_ADMIN
+            admin.college = college
+            admin.save()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if getattr(user, "role", None) == User.Role.SUPERADMIN:
+            return qs
+        if getattr(user, "role", None) == User.Role.COLLEGE_ADMIN and user.college_id:
+            return qs.filter(id=user.college_id)
+        # Other roles cannot view colleges list by default
+        return qs.none()
 
 
 @extend_schema(tags=["IAM"])

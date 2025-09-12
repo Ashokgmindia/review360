@@ -23,6 +23,17 @@ class ClassViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "academic_year"]
     ordering_fields = ["name", "academic_year", "is_active"]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if getattr(user, "role", None) == "superadmin":
+            return qs
+        if getattr(user, "college_id", None):
+            qs = qs.filter(college_id=user.college_id)
+        if getattr(user, "role", None) == "teacher":
+            qs = qs.filter(teacher_id=user.id)
+        return qs
+
 
 @extend_schema_view(
     list=extend_schema(tags=["Academics"]),
@@ -40,6 +51,17 @@ class StudentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["academic_year", "is_active", "class_ref"]
     search_fields = ["first_name", "last_name", "email"]
     ordering_fields = ["last_name", "first_name", "academic_year"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if getattr(user, "role", None) == "superadmin":
+            return qs
+        if getattr(user, "college_id", None):
+            qs = qs.filter(college_id=user.college_id)
+        if getattr(user, "role", None) == "teacher":
+            qs = qs.filter(class_ref__teacher_id=user.id)
+        return qs
 
 
 @extend_schema_view(
