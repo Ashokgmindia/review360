@@ -25,6 +25,10 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "accounts",
     "colleges",
+    "academics",
+    "learning",
+    "followup",
+    "compliance",
 ]
 
 MIDDLEWARE = [

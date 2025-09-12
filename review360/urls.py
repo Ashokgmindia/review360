@@ -13,6 +13,10 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth/", include("accounts.urls")),
     path("api/", include("colleges.urls")),
+    path("api/v1/academic/", include("academics.urls")),
+    path("api/v1/learning/", include("learning.urls")),
+    path("api/v1/followup/", include("followup.urls")),
+    path("api/v1/compliance/", include("compliance.urls")),
     # API schema and documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
