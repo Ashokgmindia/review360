@@ -23,8 +23,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     "drf_spectacular",
-    "accounts",
-    "colleges",
+    "iam",
     "academics",
     "learning",
     "followup",
@@ -141,7 +140,6 @@ SPECTACULAR_SETTINGS = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Custom user
-AUTH_USER_MODEL = "accounts.User"
+AUTH_USER_MODEL = "iam.User"
 
 

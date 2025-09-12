@@ -1,8 +1,5 @@
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
-
-
-User = get_user_model()
+from .models import User
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -14,7 +11,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        # Ensure a username value (required by AbstractUser)
         email = validated_data.get("email")
         username = email
         user = User.objects.create_user(username=username, **validated_data)

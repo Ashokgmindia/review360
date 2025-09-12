@@ -9,10 +9,8 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/auth/", include("accounts.urls")),
-    path("api/", include("colleges.urls")),
+    # IAM module (auth, token, colleges)
+    path("api/v1/IAM/", include("iam.urls")),
     path("api/v1/academic/", include("academics.urls")),
     path("api/v1/learning/", include("learning.urls")),
     path("api/v1/followup/", include("followup.urls")),
