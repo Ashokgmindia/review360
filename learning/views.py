@@ -1,10 +1,19 @@
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from .models import ActivitySheet, Validation
 from .serializers import ActivitySheetSerializer, ValidationSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Learning"]),
+    retrieve=extend_schema(tags=["Learning"]),
+    create=extend_schema(tags=["Learning"]),
+    update=extend_schema(tags=["Learning"]),
+    partial_update=extend_schema(tags=["Learning"]),
+    destroy=extend_schema(tags=["Learning"]),
+)
 class ActivitySheetViewSet(viewsets.ModelViewSet):
     queryset = ActivitySheet.objects.all().order_by("-created_at")
     serializer_class = ActivitySheetSerializer
@@ -15,6 +24,14 @@ class ActivitySheetViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "updated_at", "final_grade"]
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Learning"]),
+    retrieve=extend_schema(tags=["Learning"]),
+    create=extend_schema(tags=["Learning"]),
+    update=extend_schema(tags=["Learning"]),
+    partial_update=extend_schema(tags=["Learning"]),
+    destroy=extend_schema(tags=["Learning"]),
+)
 class ValidationViewSet(viewsets.ModelViewSet):
     queryset = Validation.objects.all().order_by("-validation_date")
     serializer_class = ValidationSerializer

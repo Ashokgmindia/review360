@@ -1,10 +1,19 @@
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from .models import FollowUpSession
 from .serializers import FollowUpSessionSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Follow-up"]),
+    retrieve=extend_schema(tags=["Follow-up"]),
+    create=extend_schema(tags=["Follow-up"]),
+    update=extend_schema(tags=["Follow-up"]),
+    partial_update=extend_schema(tags=["Follow-up"]),
+    destroy=extend_schema(tags=["Follow-up"]),
+)
 class FollowUpSessionViewSet(viewsets.ModelViewSet):
     queryset = FollowUpSession.objects.all().order_by("-session_datetime")
     serializer_class = FollowUpSessionSerializer

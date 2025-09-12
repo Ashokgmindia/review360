@@ -1,10 +1,15 @@
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from .models import AuditLog, ArchiveRecord
 from .serializers import AuditLogSerializer, ArchiveRecordSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Compliance"]),
+    retrieve=extend_schema(tags=["Compliance"]),
+)
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all().order_by("-created_at")
     serializer_class = AuditLogSerializer
@@ -15,6 +20,10 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["created_at"]
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Compliance"]),
+    retrieve=extend_schema(tags=["Compliance"]),
+)
 class ArchiveRecordViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ArchiveRecord.objects.all().order_by("-archived_at")
     serializer_class = ArchiveRecordSerializer
