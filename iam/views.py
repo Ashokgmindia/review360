@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .serializers import RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer
+from .serializers import RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer, MeSerializer
 from .models import College, User
 from .serializers import RegisterSerializer
 from rest_framework import serializers
@@ -15,17 +15,20 @@ from rest_framework import serializers
 class EmailTokenObtainPairView(generics.GenericAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = EmailTokenObtainSerializer
+    throttle_scope = "login"
 
     @extend_schema(tags=["IAM"])
     def post(self, request, *args, **kwargs):
         email = request.data.get("email")
         password = request.data.get("password")
+        username = email
+        # Attempt to resolve username from email without leaking existence
+        from .models import User
         try:
-            from .models import User
-            user_obj = User.objects.get(email=email)
+            user_obj = User.objects.only("username").get(email=email)
             username = user_obj.username
         except User.DoesNotExist:
-            username = email
+            pass
         user = authenticate(request, username=username, password=password)
         if user is None:
             return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -45,6 +48,7 @@ class RegisterView(generics.CreateAPIView):
 @extend_schema(tags=["IAM"])
 class MeView(generics.RetrieveAPIView):
     permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = MeSerializer
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -62,7 +66,8 @@ class MeView(generics.RetrieveAPIView):
             "college": user.college_id,
             "colleges": list(sorted(set(college_ids))),
         }
-        return Response(data)
+        serializer = self.get_serializer(data)
+        return Response(serializer.data)
 
 
 @extend_schema_view(
@@ -77,6 +82,7 @@ class CollegeViewSet(viewsets.ModelViewSet):
     queryset = College.objects.all().order_by("name")
     serializer_class = CollegeSerializer
     permission_classes = [permissions.IsAuthenticated]
+    allowed_roles = {User.Role.SUPERADMIN, User.Role.COLLEGE_ADMIN}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["is_active", "code"]
     search_fields = ["name", "code", "address", "contact_email", "contact_phone"]
@@ -103,7 +109,10 @@ class CollegeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        user = self.request.user
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
         if getattr(user, "role", None) == User.Role.SUPERADMIN:
             return qs
         if getattr(user, "role", None) == User.Role.COLLEGE_ADMIN:

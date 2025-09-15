@@ -6,9 +6,14 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-secret-key-change-me")
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
+# Fail fast if missing in non-debug environments
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or (
+    "dev-only-insecure-key" if os.environ.get("DJANGO_DEBUG", "1") == "1" else None
+)
+if SECRET_KEY is None:
+    raise RuntimeError("DJANGO_SECRET_KEY must be set in production")
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
+ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
 
 # Applications
 INSTALLED_APPS = [
@@ -110,7 +115,15 @@ STORAGES = {
 
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL", "1") == "1"
+# Prefer explicit origins; keep a dev-only escape hatch
+_cors_allow_all = os.environ.get("CORS_ALLOW_ALL", "0") == "1"
+if _cors_allow_all and not DEBUG:
+    _cors_allow_all = False
+    # In prod we never allow all; rely on explicit origins
+CORS_ALLOW_ALL_ORIGINS = _cors_allow_all
+CORS_ALLOWED_ORIGINS = [
+    o for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",") if o
+]
 
 
 # DRF + JWT
@@ -122,11 +135,26 @@ REST_FRAMEWORK = {
         "django_filters.rest_framework.DjangoFilterBackend",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Pagination
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": int(os.environ.get("DRF_PAGE_SIZE", "50")),
+    # Throttling (tunable via env)
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": os.environ.get("DRF_THROTTLE_USER", "1000/hour"),
+        "anon": os.environ.get("DRF_THROTTLE_ANON", "100/hour"),
+        "login": os.environ.get("DRF_THROTTLE_LOGIN", "20/hour"),
+    },
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get("JWT_ACCESS_MIN", "60"))),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get("JWT_ACCESS_MIN", "30"))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get("JWT_REFRESH_DAYS", "7"))),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # drf-spectacular
@@ -135,6 +163,27 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API documentation for Review360",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SERVERS": [
+        {"url": "/", "description": "Current server"},
+    ],
+    "SECURITY": [{"BearerAuth": []}],
+}
+
+# Logging (JSON-ready minimal config)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+    },
+    "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "security": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
 }
 
 

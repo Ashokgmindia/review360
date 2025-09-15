@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from .models import ActivitySheet, Validation
 from .serializers import ActivitySheetSerializer, ValidationSerializer
-from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped
+from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 
 
 @extend_schema_view(
@@ -16,9 +16,17 @@ from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped
     destroy=extend_schema(tags=["Learning"]),
 )
 class ActivitySheetViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = ActivitySheet.objects.all().order_by("-created_at")
+    queryset = ActivitySheet.objects.select_related("college", "student").order_by("-created_at")
     serializer_class = ActivitySheetSerializer
-    permission_classes = [IsAuthenticatedAndScoped]
+    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
+    role_perms = {
+        "list": {"superadmin", "college_admin", "teacher"},
+        "retrieve": {"superadmin", "college_admin", "teacher"},
+        "create": {"superadmin", "college_admin", "teacher"},
+        "update": {"superadmin", "college_admin", "teacher"},
+        "partial_update": {"superadmin", "college_admin", "teacher"},
+        "destroy": {"superadmin", "college_admin"},
+    }
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["sheet_type", "status", "academic_year"]
     search_fields = ["student_name", "title", "context", "objectives", "methodology"]
@@ -34,9 +42,17 @@ class ActivitySheetViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     destroy=extend_schema(tags=["Learning"]),
 )
 class ValidationViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Validation.objects.all().order_by("-validation_date")
+    queryset = Validation.objects.select_related("college", "activity_sheet", "teacher").order_by("-validation_date")
     serializer_class = ValidationSerializer
-    permission_classes = [IsAuthenticatedAndScoped]
+    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
+    role_perms = {
+        "list": {"superadmin", "college_admin", "teacher"},
+        "retrieve": {"superadmin", "college_admin", "teacher"},
+        "create": {"superadmin", "college_admin", "teacher"},
+        "update": {"superadmin", "college_admin", "teacher"},
+        "partial_update": {"superadmin", "college_admin", "teacher"},
+        "destroy": {"superadmin", "college_admin"},
+    }
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["activity_sheet"]
     ordering_fields = ["validation_date", "session_grade"]

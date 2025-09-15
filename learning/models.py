@@ -16,7 +16,7 @@ class ActivitySheet(models.Model):
     )
 
     # For SaaS multi-tenant: tie to college and student
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="activity_sheets", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="activity_sheets")
     student = models.ForeignKey("academics.Student", on_delete=models.CASCADE, related_name="activity_sheets", null=True, blank=True)
     student_name = models.CharField(max_length=200)
     sheet_type = models.CharField(max_length=20, choices=SHEET_TYPES)
@@ -36,7 +36,7 @@ class ActivitySheet(models.Model):
 
 
 class Validation(models.Model):
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="validations", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="validations")
     activity_sheet = models.ForeignKey(ActivitySheet, on_delete=models.CASCADE, related_name="validations")
     teacher = models.ForeignKey("iam.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="validations")
     has_subject = models.BooleanField(default=False)

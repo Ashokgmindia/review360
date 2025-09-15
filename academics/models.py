@@ -7,10 +7,14 @@ class Class(models.Model):
     name = models.CharField(max_length=50)
     academic_year = models.CharField(max_length=9)
     is_active = models.BooleanField(default=True)
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="classes", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="classes")
     teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="teaching_classes")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Class"
+        verbose_name_plural = "Classes"
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.name} ({self.academic_year})"
@@ -23,9 +27,9 @@ class Student(models.Model):
     class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name="students")
     academic_year = models.CharField(max_length=9)
     is_active = models.BooleanField(default=True)
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="students", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="students")
     department = models.ForeignKey("academics.Department", on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
-    student_number = models.CharField(max_length=30, unique=True)
+    student_number = models.CharField(max_length=30)
     birth_date = models.DateField(null=True, blank=True)
     metadata = models.JSONField(blank=True, null=True, default=dict)
     created_at = models.DateTimeField(default=timezone.now)
@@ -33,6 +37,9 @@ class Student(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        unique_together = ("college", "student_number")
 
 
 class ImportLog(models.Model):
@@ -42,7 +49,7 @@ class ImportLog(models.Model):
     errors_count = models.IntegerField(default=0)
     error_details = models.JSONField(blank=True, null=True)
     imported_at = models.DateTimeField(default=timezone.now)
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="import_logs", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="import_logs")
     imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="imports")
 
 
@@ -113,6 +120,28 @@ class Teacher(models.Model):
 
     class Meta:
         unique_together = ("college", "employee_id")
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.first_name} {self.last_name}"

@@ -97,3 +97,11 @@ class EmailTokenObtainSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class MeSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    role = serializers.CharField(read_only=True)
+    college = serializers.IntegerField(allow_null=True, read_only=True)
+    colleges = serializers.ListField(child=serializers.IntegerField(), read_only=True)
+
+

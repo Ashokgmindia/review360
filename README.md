@@ -1,8 +1,8 @@
 ## Review360 DRF + Postgres (Dockerized)
 
 JWT login endpoints:
-- `POST /api/auth/login/` with `{ "email": "...", "password": "..." }`
-- `POST /api/token/refresh/` with `{ "refresh": "..." }`
+- `POST /api/v1/iam/auth/login/` with `{ "email": "...", "password": "..." }`
+- `POST /api/v1/iam/token/refresh/` with `{ "refresh": "..." }`
 
 ### Run (Docker)
 1. Build and start services:
@@ -31,6 +31,7 @@ docker compose exec web python manage.py createsuperuser
 ### Environment variables
 - `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`
-- `CORS_ALLOW_ALL`, `JWT_ACCESS_MIN`, `JWT_REFRESH_DAYS`
+- `CORS_ALLOWED_ORIGINS` (comma-separated), `JWT_ACCESS_MIN`, `JWT_REFRESH_DAYS`
+- DRF throttling: `DRF_THROTTLE_USER`, `DRF_THROTTLE_ANON`, `DRF_THROTTLE_LOGIN`
 
 

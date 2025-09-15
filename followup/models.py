@@ -10,7 +10,7 @@ class FollowUpSession(models.Model):
         ("rescheduled", "rescheduled"),
     )
 
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="follow_up_sessions", null=True, blank=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="follow_up_sessions")
     student = models.ForeignKey("academics.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
     activity_sheet = models.ForeignKey("learning.ActivitySheet", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
     teacher = models.ForeignKey("iam.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
