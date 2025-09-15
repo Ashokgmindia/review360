@@ -57,7 +57,7 @@ class CollegeSerializer(serializers.ModelSerializer):
             "admin_password",
             "admin_role",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "admin"]
 
     def create(self, validated_data):
         admin_email = validated_data.pop("admin_email")

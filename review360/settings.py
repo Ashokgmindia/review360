@@ -166,7 +166,16 @@ SPECTACULAR_SETTINGS = {
     "SERVERS": [
         {"url": "/", "description": "Current server"},
     ],
+    # Global security requirement
     "SECURITY": [{"BearerAuth": []}],
+    # Define JWT bearer scheme explicitly so UIs show the Authorize button correctly
+    "SECURITY_SCHEMES": {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    },
 }
 
 # Logging (JSON-ready minimal config)
