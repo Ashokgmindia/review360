@@ -10,6 +10,7 @@ class UserAdmin(DjangoUserAdmin):
     list_display = ("username", "email", "role", "college", "is_staff", "is_superuser")
     list_filter = ("role", "college", "is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("username", "email", "first_name", "last_name")
+    readonly_fields = ("last_login", "date_joined", "created_at", "updated_at")
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email", "phone_number")} ),
@@ -40,13 +41,22 @@ class UserAdmin(DjangoUserAdmin):
         ),
     )
 
-    # Scope visibility to the current user's college when they are a college admin
+    # Scope visibility to the current user's college(s) when they are a college admin
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if getattr(request.user, "role", None) == User.Role.SUPERADMIN:
             return qs
-        if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN and request.user.college_id:
-            return qs.filter(college_id=request.user.college_id)
+        if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
+            college_ids = []
+            try:
+                college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                college_ids = []
+            if request.user.college_id:
+                college_ids.append(request.user.college_id)
+            college_ids = list({cid for cid in college_ids if cid})
+            if college_ids:
+                return qs.filter(college_id__in=college_ids)
         # Other roles: see nothing
         return qs.none()
 
@@ -62,7 +72,15 @@ class UserAdmin(DjangoUserAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if obj is None:
                 return True
-            return obj.college_id == request.user.college_id
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if request.user.college_id:
+                user_college_ids.append(request.user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            return obj.college_id in user_college_ids
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -71,7 +89,15 @@ class UserAdmin(DjangoUserAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if obj is None:
                 return True
-            return obj.college_id == request.user.college_id
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if request.user.college_id:
+                user_college_ids.append(request.user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            return obj.college_id in user_college_ids
         return False
 
     def has_view_permission(self, request, obj=None):
@@ -80,7 +106,15 @@ class UserAdmin(DjangoUserAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if obj is None:
                 return True
-            return obj.college_id == request.user.college_id
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if request.user.college_id:
+                user_college_ids.append(request.user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            return obj.college_id in user_college_ids
         return False
 
     def get_model_perms(self, request):
@@ -130,8 +164,17 @@ class CollegeAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if getattr(request.user, "role", None) == User.Role.SUPERADMIN:
             return qs
-        if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN and request.user.college_id:
-            return qs.filter(id=request.user.college_id)
+        if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
+            college_ids = []
+            try:
+                college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                college_ids = []
+            if request.user.college_id:
+                college_ids.append(request.user.college_id)
+            college_ids = list({cid for cid in college_ids if cid})
+            if college_ids:
+                return qs.filter(id__in=college_ids)
         return qs.none()
 
     def has_add_permission(self, request):
