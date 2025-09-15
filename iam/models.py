@@ -25,6 +25,8 @@ class College(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
+        if self.name and self.code:
+            return f"{self.name} ({self.code})"
         return self.name or self.code
 
 

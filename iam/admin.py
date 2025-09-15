@@ -8,7 +8,7 @@ from .models import User, College
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     model = User
-    list_display = ("username", "email", "role", "college", "all_colleges", "is_staff", "is_superuser")
+    list_display = ("username", "email", "role", "colleges_display", "is_staff", "is_superuser")
     list_filter = ("role", "college", "is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("username", "email", "first_name", "last_name")
     readonly_fields = ("last_login", "date_joined", "created_at", "updated_at")
@@ -162,17 +162,36 @@ class UserAdmin(DjangoUserAdmin):
                     form.base_fields[field].required = False
         return form
 
-    def all_colleges(self, obj):
+    def college_display(self, obj):
+        if not obj.college:
+            return "-"
+        if obj.college.name and obj.college.code:
+            return f"{obj.college.name} ({obj.college.code})"
+        return str(obj.college)
+    college_display.short_description = "College"
+
+    def colleges_display(self, obj):
         try:
-            m2m_ids = list(obj.colleges.values_list("code", flat=True))
+            items = list(obj.colleges.values_list("name", "code"))
         except Exception:
-            m2m_ids = []
+            items = []
+        # Avoid double showing FK college if present in M2M
+        seen = set()
         parts = []
-        if obj.college:
-            parts.append(obj.college.code)
-        parts.extend([code for code in m2m_ids if code and (not obj.college or code != obj.college.code)])
+        if obj.college_id:
+            key = (obj.college.name, obj.college.code)
+            seen.add(key)
+            parts.append(self.college_display(obj))
+        for name, code in items:
+            key = (name, code)
+            if key in seen:
+                continue
+            if name and code:
+                parts.append(f"{name} ({code})")
+            else:
+                parts.append(name or code or "-")
         return ", ".join(parts) or "-"
-    all_colleges.short_description = "Colleges"
+    colleges_display.short_description = "Colleges"
 
 
 @admin.register(College)
