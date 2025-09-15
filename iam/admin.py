@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db import models
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 from .models import User, College
@@ -7,7 +8,7 @@ from .models import User, College
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     model = User
-    list_display = ("username", "email", "role", "college", "is_staff", "is_superuser")
+    list_display = ("username", "email", "role", "college", "all_colleges", "is_staff", "is_superuser")
     list_filter = ("role", "college", "is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("username", "email", "first_name", "last_name")
     readonly_fields = ("last_login", "date_joined", "created_at", "updated_at")
@@ -49,14 +50,16 @@ class UserAdmin(DjangoUserAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             college_ids = []
             try:
-                college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+                college_ids = list(request.user.colleges.values_list("id", flat=True))
             except Exception:
                 college_ids = []
             if request.user.college_id:
                 college_ids.append(request.user.college_id)
             college_ids = list({cid for cid in college_ids if cid})
             if college_ids:
-                return qs.filter(college_id__in=college_ids)
+                # show users whose FK college is any of admin's colleges OR
+                # users who are members via M2M of any admin colleges
+                return qs.filter(models.Q(college_id__in=college_ids) | models.Q(colleges__in=college_ids)).distinct()
         # Other roles: see nothing
         return qs.none()
 
@@ -134,6 +137,12 @@ class UserAdmin(DjangoUserAdmin):
             obj.is_superuser = False
             obj.is_staff = False
         super().save_model(request, obj, form, change)
+        # Keep M2M membership in sync with FK for convenience
+        try:
+            if obj.college_id:
+                obj.colleges.add(obj.college)
+        except Exception:
+            pass
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -152,6 +161,18 @@ class UserAdmin(DjangoUserAdmin):
                     form.base_fields[field].disabled = True
                     form.base_fields[field].required = False
         return form
+
+    def all_colleges(self, obj):
+        try:
+            m2m_ids = list(obj.colleges.values_list("code", flat=True))
+        except Exception:
+            m2m_ids = []
+        parts = []
+        if obj.college:
+            parts.append(obj.college.code)
+        parts.extend([code for code in m2m_ids if code and (not obj.college or code != obj.college.code)])
+        return ", ".join(parts) or "-"
+    all_colleges.short_description = "Colleges"
 
 
 @admin.register(College)
@@ -187,7 +208,15 @@ class CollegeAdmin(admin.ModelAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if obj is None:
                 return True
-            return obj and obj.id == request.user.college_id
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if request.user.college_id:
+                user_college_ids.append(request.user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            return obj and obj.id in user_college_ids
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -200,7 +229,15 @@ class CollegeAdmin(admin.ModelAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if obj is None:
                 return True
-            return obj and obj.id == request.user.college_id
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(request.user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if request.user.college_id:
+                user_college_ids.append(request.user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            return obj and obj.id in user_college_ids
         return False
 
     def get_model_perms(self, request):
@@ -209,5 +246,24 @@ class CollegeAdmin(admin.ModelAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             perms["view"] = True
         return perms
+
+    def save_model(self, request, obj, form, change):
+        # Save the college first
+        super().save_model(request, obj, form, change)
+        # Ensure selected admin has proper role and is linked via M2M to this college
+        try:
+            admin_user = obj.admin
+            if admin_user is not None:
+                if getattr(admin_user, "role", None) != User.Role.SUPERADMIN:
+                    admin_user.role = User.Role.COLLEGE_ADMIN
+                if not admin_user.college_id:
+                    admin_user.college = obj
+                admin_user.save()
+                try:
+                    admin_user.colleges.add(obj)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
