@@ -42,6 +42,29 @@ class RegisterView(generics.CreateAPIView):
         return super().post(request, *args, **kwargs)
 
 
+@extend_schema(tags=["IAM"])
+class MeView(generics.RetrieveAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        college_ids = []
+        try:
+            college_ids = list(getattr(user, "colleges").values_list("id", flat=True))
+        except Exception:
+            college_ids = []
+        if user.college_id:
+            college_ids.append(user.college_id)
+        data = {
+            "id": user.id,
+            "email": user.email,
+            "role": getattr(user, "role", None),
+            "college": user.college_id,
+            "colleges": list(sorted(set(college_ids))),
+        }
+        return Response(data)
+
+
 @extend_schema_view(
     list=extend_schema(tags=["IAM"]),
     retrieve=extend_schema(tags=["IAM"]),
@@ -72,14 +95,29 @@ class CollegeViewSet(viewsets.ModelViewSet):
             admin.role = User.Role.COLLEGE_ADMIN
             admin.college = college
             admin.save()
+            try:
+                # Ensure M2M membership is in sync
+                admin.colleges.add(college)
+            except Exception:
+                pass
 
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
         if getattr(user, "role", None) == User.Role.SUPERADMIN:
             return qs
-        if getattr(user, "role", None) == User.Role.COLLEGE_ADMIN and user.college_id:
-            return qs.filter(id=user.college_id)
+        if getattr(user, "role", None) == User.Role.COLLEGE_ADMIN:
+            user_college_ids = []
+            try:
+                user_college_ids = list(getattr(user, "colleges").values_list("id", flat=True))
+            except Exception:
+                user_college_ids = []
+            if user.college_id:
+                user_college_ids.append(user.college_id)
+            user_college_ids = list({cid for cid in user_college_ids if cid})
+            if user_college_ids:
+                return qs.filter(id__in=user_college_ids)
+            return qs.none()
         # Other roles cannot view colleges list by default
         return qs.none()
 

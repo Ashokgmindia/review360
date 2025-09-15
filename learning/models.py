@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class ActivitySheet(models.Model):
@@ -14,6 +15,9 @@ class ActivitySheet(models.Model):
         ("validated", "validated"),
     )
 
+    # For SaaS multi-tenant: tie to college and student
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="activity_sheets", null=True, blank=True)
+    student = models.ForeignKey("academics.Student", on_delete=models.CASCADE, related_name="activity_sheets", null=True, blank=True)
     student_name = models.CharField(max_length=200)
     sheet_type = models.CharField(max_length=20, choices=SHEET_TYPES)
     sheet_number = models.PositiveIntegerField()
@@ -24,21 +28,24 @@ class ActivitySheet(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="not_started")
     final_grade = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     academic_year = models.CharField(max_length=9)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("student_name", "sheet_type", "sheet_number", "academic_year")
+        unique_together = ("college", "student_name", "sheet_type", "sheet_number", "academic_year")
 
 
 class Validation(models.Model):
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="validations", null=True, blank=True)
     activity_sheet = models.ForeignKey(ActivitySheet, on_delete=models.CASCADE, related_name="validations")
+    teacher = models.ForeignKey("iam.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="validations")
     has_subject = models.BooleanField(default=False)
     context_well_formulated = models.BooleanField(default=False)
     objectives_validated = models.BooleanField(default=False)
     methodology_respected = models.BooleanField(default=False)
     session_grade = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     comments = models.TextField(blank=True, default="")
-    validation_date = models.DateTimeField(auto_now_add=True)
+    validation_date = models.DateTimeField(default=timezone.now)
+    # Keep ordering/updated tracking
 
 

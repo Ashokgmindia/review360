@@ -7,6 +7,8 @@ class ActivitySheetSerializer(serializers.ModelSerializer):
         model = ActivitySheet
         fields = [
             "id",
+            "college",
+            "student",
             "student_name",
             "sheet_type",
             "sheet_number",
@@ -28,7 +30,9 @@ class ValidationSerializer(serializers.ModelSerializer):
         model = Validation
         fields = [
             "id",
+            "college",
             "activity_sheet",
+            "teacher",
             "has_subject",
             "context_well_formulated",
             "objectives_validated",

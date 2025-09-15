@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
 
@@ -20,6 +21,11 @@ class College(models.Model):
         blank=True,
         related_name="admin_of_colleges",
     )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return self.name or self.code
 
 
 class User(AbstractUser):
@@ -31,7 +37,15 @@ class User(AbstractUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT)
+    # Backward-compat single-college reference kept for legacy flows
     college = models.ForeignKey(College, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
+    # New: support users belonging to multiple colleges
+    colleges = models.ManyToManyField(College, related_name="member_users", blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, default="")
+    employee_id = models.CharField(max_length=50, blank=True, default="")
+    designation = models.CharField(max_length=100, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
         return self.email or self.username

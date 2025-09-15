@@ -7,6 +7,10 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
         model = FollowUpSession
         fields = [
             "id",
+            "college",
+            "student",
+            "activity_sheet",
+            "teacher",
             "student_name",
             "activity_sheet_title",
             "teacher_name",

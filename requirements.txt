@@ -8,3 +8,4 @@ gunicorn==21.2.0
 whitenoise==6.7.0
 drf-spectacular==0.27.2
 drf-spectacular-sidecar==2024.7.1
+Pillow==10.4.0
