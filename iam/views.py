@@ -40,17 +40,22 @@ class LoginView(generics.GenericAPIView):
         if user is None:
             return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Generate and send OTP
-        otp = generate_otp()
-        user.otp = otp
-        user.otp_created_at = timezone.now()
-        user.save()
+        if user.is_superuser:
+            # Bypass MFA for superusers
+            refresh = RefreshToken.for_user(user)
+            return Response({"refresh": str(refresh), "access": str(refresh.access_token)})
+        else:
+            # Generate and send OTP for non-superusers
+            otp = generate_otp()
+            user.otp = otp
+            user.otp_created_at = timezone.now()
+            user.save()
 
-        subject = 'Your One-Time Password (OTP) for Login'
-        message_template = 'Your OTP for authentication is: {otp}\n\nThis code is valid for 5 minutes.'
-        send_otp_email(user.email, otp, subject, message_template)
+            subject = 'Your One-Time Password (OTP) for Login'
+            message_template = 'Your OTP for authentication is: {otp}\n\nThis code is valid for 5 minutes.'
+            send_otp_email(user.email, otp, subject, message_template)
 
-        return Response({"detail": "OTP sent to your email. Please verify to login."}, status=status.HTTP_200_OK)
+            return Response({"detail": "OTP sent to your email. Please verify to login."}, status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["IAM"])
