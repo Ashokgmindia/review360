@@ -9,6 +9,11 @@ class Class(models.Model):
     is_active = models.BooleanField(default=True)
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="classes")
     teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="teaching_classes")
+    section = models.CharField(max_length=10, blank=True, default="")
+    program = models.CharField(max_length=100, blank=True, default="")
+    semester = models.IntegerField(null=True, blank=True)
+    room_number = models.CharField(max_length=20, blank=True, default="")
+    max_students = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -21,16 +26,40 @@ class Class(models.Model):
 
 
 class Student(models.Model):
+    # Basic Information
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, default="")
+    birth_date = models.DateField(null=True, blank=True)
+    blood_group = models.CharField(max_length=5, blank=True, default="")
+    address = models.TextField(blank=True, default="")
+    profile_photo = models.ImageField(upload_to="student_photos/", null=True, blank=True)
+    
+    # Academic Information
     class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name="students")
     academic_year = models.CharField(max_length=9)
-    is_active = models.BooleanField(default=True)
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="students")
     department = models.ForeignKey("academics.Department", on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
     student_number = models.CharField(max_length=30)
-    birth_date = models.DateField(null=True, blank=True)
+    admission_date = models.DateField(null=True, blank=True)
+    graduation_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, 
+        choices=[
+            ("enrolled", "Enrolled"),
+            ("graduated", "Graduated"),
+            ("dropped", "Dropped")
+        ], 
+        default="enrolled"
+    )
+    
+    # Guardian Information
+    guardian_name = models.CharField(max_length=100, blank=True, default="")
+    guardian_contact = models.CharField(max_length=20, blank=True, default="")
+    
+    # System Fields
+    is_active = models.BooleanField(default=True)
     metadata = models.JSONField(blank=True, null=True, default=dict)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -43,14 +72,40 @@ class Student(models.Model):
 
 
 class ImportLog(models.Model):
+    # Import Context
     class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name="import_logs")
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="import_logs")
+    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="imports")
+    
+    # File Information
     filename = models.CharField(max_length=255)
+    
+    # Import Results
     imported_count = models.IntegerField(default=0)
     errors_count = models.IntegerField(default=0)
     error_details = models.JSONField(blank=True, null=True)
+    status = models.CharField(
+        max_length=20, 
+        choices=[
+            ("success", "Success"),
+            ("failed", "Failed"),
+            ("partial", "Partial")
+        ], 
+        default="success"
+    )
+    
+    # Performance & Notes
+    duration = models.DurationField(null=True, blank=True)
+    remarks = models.TextField(blank=True, default="")
+    
+    # System Fields
     imported_at = models.DateTimeField(default=timezone.now)
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="import_logs")
-    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="imports")
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Import: {self.filename} - {self.status} ({self.imported_count} records)"
+
+    class Meta:
+        ordering = ['-imported_at']
 
 
 
@@ -71,43 +126,70 @@ class Department(models.Model):
 
 
 class Subject(models.Model):
+    # Basic Information
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20)
+    description = models.TextField(blank=True, default="")
+    
+    # Academic Structure
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="subjects")
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="subjects")
+    semester = models.IntegerField(null=True, blank=True)
+    credits = models.IntegerField(default=0)
+    is_elective = models.BooleanField(default=False)
+    
+    # Curriculum Resources
+    syllabus_file = models.FileField(upload_to="syllabus/", null=True, blank=True)
+    
+    # System Fields
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ("college", "code")
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.name} ({self.code})"
 
+    class Meta:
+        unique_together = ("college", "code")
+
 
 class Teacher(models.Model):
-
+    # User Account & Basic Information
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="teacher_profile")
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="teachers")
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
     phone_number = models.CharField(max_length=20, blank=True, default="")
+    emergency_contact = models.CharField(max_length=20, blank=True, default="")
     gender = models.CharField(max_length=10, blank=True, default="")
     date_of_birth = models.DateField(null=True, blank=True)
+    blood_group = models.CharField(max_length=5, blank=True, default="")
     address = models.TextField(blank=True, default="")
     profile_photo = models.ImageField(upload_to="teacher_photos/", null=True, blank=True)
+    
+    # Employment Information
     employee_id = models.CharField(max_length=50)
     date_of_joining = models.DateField(null=True, blank=True)
+    employment_type = models.CharField(
+        max_length=50, 
+        choices=[
+            ("full-time", "Full-Time"),
+            ("part-time", "Part-Time"),
+            ("visiting", "Visiting")
+        ], 
+        default="full-time"
+    )
+    salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
-
-
+    
+    # Academic & Administrative Roles
     designation = models.CharField(max_length=100, blank=True, default="")
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="teachers")
     role_type = models.CharField(max_length=50, blank=True, default="Teaching")
     is_hod = models.BooleanField(default=False)
     reporting_to = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="reports")
-
+    
+    # Qualifications & Experience
     highest_qualification = models.CharField(max_length=100, blank=True, default="")
     specialization = models.CharField(max_length=100, blank=True, default="")
     experience_years = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
@@ -115,8 +197,16 @@ class Teacher(models.Model):
     research_publications = models.IntegerField(default=0)
     certifications = models.TextField(blank=True, default="")
     resume = models.FileField(upload_to="teacher_cv/", null=True, blank=True)
+    
+    # Leave Management
+    leaves_remaining = models.IntegerField(default=0)
+    
+    # System Fields
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.first_name} {self.last_name} ({self.employee_id})"
 
     class Meta:
         unique_together = ("college", "employee_id")

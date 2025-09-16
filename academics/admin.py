@@ -75,8 +75,8 @@ class TeacherAdmin(admin.ModelAdmin):
 
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
-    list_display = ("name", "academic_year", "college", "teacher")
-    search_fields = ("name", "academic_year")
+    list_display = ("name", "section", "program", "semester", "academic_year", "room_number", "max_students", "college", "teacher")
+    search_fields = ("name", "academic_year", "section", "program", "room_number")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

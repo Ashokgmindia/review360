@@ -7,7 +7,17 @@ from .models import Class, Student, ImportLog, Department, Subject, Teacher
 class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = Class
-        fields = ["id", "name", "academic_year", "is_active"]
+        fields = [
+            "id",
+            "name",
+            "academic_year",
+            "is_active",
+            "section",
+            "program",
+            "semester",
+            "room_number",
+            "max_students",
+        ]
         read_only_fields = ["id"]
 
 
