@@ -13,7 +13,11 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or (
 if SECRET_KEY is None:
     raise RuntimeError("DJANGO_SECRET_KEY must be set in production")
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
-ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+ALLOWED_HOSTS = [
+    h
+    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h
+]
 
 # Applications
 INSTALLED_APPS = [
@@ -33,10 +37,6 @@ INSTALLED_APPS = [
     "learning",
     "followup",
     "compliance",
-    'django_otp',
-    'django_otp.plugins.otp_static',
-    'django_otp.plugins.otp_totp',
-    'two_factor',
 ]
 
 MIDDLEWARE = [
@@ -49,8 +49,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django_otp.middleware.OTPMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware"
+    "django.contrib.messages.middleware.MessageMiddleware",
 ]
 
 ROOT_URLCONF = "review360.urls"
@@ -90,7 +89,9 @@ DATABASES = {
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -128,7 +129,11 @@ if _cors_allow_all and not DEBUG:
     # In prod we never allow all; rely on explicit origins
 CORS_ALLOW_ALL_ORIGINS = _cors_allow_all
 CORS_ALLOWED_ORIGINS = [
-    o for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",") if o
+    o
+    for o in os.environ.get(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000"
+    ).split(",")
+    if o
 ]
 
 
@@ -137,9 +142,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    "DEFAULT_FILTER_BACKENDS": (
-        "django_filters.rest_framework.DjangoFilterBackend",
-    ),
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Pagination
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
@@ -157,19 +160,23 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get("JWT_ACCESS_MIN", "30"))),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get("JWT_REFRESH_DAYS", "7"))),
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.environ.get("JWT_ACCESS_MIN", "30"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.environ.get("JWT_REFRESH_DAYS", "7"))
+    ),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True  # For Transport Layer Security
-EMAIL_HOST_USER = 'gmi.tn.dev.akmarimuthu@gmail.com'  # Your full Gmail address
-EMAIL_HOST_PASSWORD = 'ragmvkoqvlvvzalr'
+EMAIL_HOST_USER = "gmi.tn.dev.akmarimuthu@gmail.com"  # Your full Gmail address
+EMAIL_HOST_PASSWORD = "ragmvkoqvlvvzalr"
 
 # drf-spectacular
 SPECTACULAR_SETTINGS = {
@@ -204,7 +211,11 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
     "loggers": {
-        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "security": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
@@ -213,5 +224,3 @@ LOGGING = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "iam.User"
-
-
