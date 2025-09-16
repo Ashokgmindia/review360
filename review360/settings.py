@@ -33,6 +33,10 @@ INSTALLED_APPS = [
     "learning",
     "followup",
     "compliance",
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_totp',
+    'two_factor',
 ]
 
 MIDDLEWARE = [
@@ -45,6 +49,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_otp.middleware.OTPMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware"
 ]
 
 ROOT_URLCONF = "review360.urls"
@@ -156,6 +162,14 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True  # For Transport Layer Security
+EMAIL_HOST_USER = 'gmi.tn.dev.akmarimuthu@gmail.com'  # Your full Gmail address
+EMAIL_HOST_PASSWORD = 'ragmvkoqvlvvzalr'
 
 # drf-spectacular
 SPECTACULAR_SETTINGS = {

@@ -48,6 +48,9 @@ class User(AbstractUser):
     designation = models.CharField(max_length=100, blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    # Fields for OTP
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self) -> str:  # pragma: no cover
         return self.email or self.username
@@ -89,5 +92,3 @@ class UserManager(BaseUserManager):
 
 
 User.add_to_class("objects", UserManager())
-
-
