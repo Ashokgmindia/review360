@@ -122,6 +122,7 @@ class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
     
+    @extend_schema(tags=["Academics"])
     @action(detail=True, methods=['get'], url_path='topics')
     def get_topics(self, request, pk=None):
         """Get all topics for a specific subject."""
@@ -130,6 +131,7 @@ class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         serializer = TopicSerializer(topics, many=True)
         return Response(serializer.data)
     
+    @extend_schema(tags=["Academics"])
     @action(detail=True, methods=['post'], url_path='topics')
     def create_topic(self, request, pk=None):
         """Create a new topic for a specific subject."""

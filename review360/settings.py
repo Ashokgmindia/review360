@@ -197,6 +197,17 @@ SPECTACULAR_SETTINGS = {
             "bearerFormat": "JWT",
         }
     },
+    # Order the API endpoints by tags to match the specified order
+    "TAGS": [
+        {"name": "IAM", "description": "Identity and Access Management"},
+        {"name": "Academics", "description": "Academic management including classes, students, teachers, and subjects"},
+        {"name": "Learning", "description": "Learning activities and validations"},
+        {"name": "Followup", "description": "Follow-up sessions and tracking"},
+        {"name": "Compliance", "description": "Audit logs and compliance records"},
+    ],
+    # Sort operations by tags to maintain the specified order
+    "SORT_OPERATIONS": True,
+    "SORT_TAGS": True,
 }
 
 # Logging (JSON-ready minimal config)

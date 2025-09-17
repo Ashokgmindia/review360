@@ -9,12 +9,12 @@ from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantSco
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Follow-up"]),
-    retrieve=extend_schema(tags=["Follow-up"]),
-    create=extend_schema(tags=["Follow-up"]),
-    update=extend_schema(tags=["Follow-up"]),
-    partial_update=extend_schema(tags=["Follow-up"]),
-    destroy=extend_schema(tags=["Follow-up"]),
+    list=extend_schema(tags=["Followup"]),
+    retrieve=extend_schema(tags=["Followup"]),
+    create=extend_schema(tags=["Followup"]),
+    update=extend_schema(tags=["Followup"]),
+    partial_update=extend_schema(tags=["Followup"]),
+    destroy=extend_schema(tags=["Followup"]),
 )
 class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = FollowUpSession.objects.select_related("college", "student", "activity_sheet", "teacher").order_by("-session_datetime")

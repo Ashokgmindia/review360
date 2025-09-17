@@ -24,7 +24,7 @@ router.register(r"topics", TopicViewSet, basename="topic")
 
 urlpatterns = [
     path("", include(router.urls)),
-    # Separate bulk upload endpoints for User accounts only
+    # Bulk upload endpoints for User accounts
     path("bulk-upload/teacher-users/", bulk_upload_teacher_users, name="bulk-upload-teacher-users"),
     path("bulk-upload/student-users/", bulk_upload_student_users, name="bulk-upload-student-users"),
 ]

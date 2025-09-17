@@ -23,7 +23,7 @@ class BulkUploadResponseSerializer(serializers.Serializer):
 
 
 @extend_schema(
-    tags=["Bulk Upload"],
+    tags=["Academics"],
     summary="Bulk upload teacher users",
     description="Upload teacher users in bulk via Excel, CSV, or JSON file. Requires 'academics.add_teacher' permission. Creates User accounts with Teacher role only.",
     request={
@@ -99,7 +99,7 @@ def bulk_upload_teacher_users(request):
 
 
 @extend_schema(
-    tags=["Bulk Upload"],
+    tags=["Academics"],
     summary="Bulk upload student users",
     description="Upload student users in bulk via Excel, CSV, or JSON file. Requires 'academics.add_student' permission. Creates User accounts with Student role only.",
     request={
