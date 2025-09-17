@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
-from .models import Class, Student, ImportLog, Department, Subject, Teacher
+from .models import Class, Student, ImportLog, Department, Subject, Teacher, Topic
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -124,11 +124,43 @@ class DepartmentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
+class TopicSerializer(serializers.ModelSerializer):
+    subject_id = serializers.IntegerField(write_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    
+    class Meta:
+        model = Topic
+        fields = [
+            "id", "name", "description", "subject_id", "subject_name", "order", 
+            "is_active", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+    
+    def create(self, validated_data):
+        # Extract subject_id and remove it from validated_data
+        subject_id = validated_data.pop('subject_id')
+        
+        # Get the subject object
+        try:
+            subject = Subject.objects.get(id=subject_id)
+        except Subject.DoesNotExist:
+            raise serializers.ValidationError("Subject with this ID does not exist.")
+        
+        # Create the topic with the subject
+        return Topic.objects.create(subject=subject, **validated_data)
+
+
 class SubjectSerializer(serializers.ModelSerializer):
+    topics = TopicSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Subject
-        fields = ["id", "name", "code", "department"]
-        read_only_fields = ["id"]
+        fields = [
+            "id", "name", "code", "description", "department", 
+            "college", "semester", "credits", "is_elective", 
+            "is_active", "syllabus_file", "topics", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class TeacherSerializer(serializers.ModelSerializer):

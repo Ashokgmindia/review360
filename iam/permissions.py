@@ -32,6 +32,7 @@ class RoleBasedPermission(BasePermission):
                 'teacher': ['create', 'read', 'update', 'delete'],
                 'department': ['create', 'read', 'update', 'delete'],
                 'subject': ['create', 'read', 'update', 'delete'],
+                'topic': ['create', 'read', 'update', 'delete'],
                 'importlog': ['read'],
             },
             'learning': {
@@ -53,6 +54,7 @@ class RoleBasedPermission(BasePermission):
                 'teacher': ['create', 'read', 'update', 'delete'],
                 'department': ['create', 'read', 'update', 'delete'],
                 'subject': ['create', 'read', 'update', 'delete'],
+                'topic': ['create', 'read', 'update', 'delete'],
                 'importlog': ['read'],
             },
             'learning': {
@@ -74,6 +76,7 @@ class RoleBasedPermission(BasePermission):
                 'teacher': ['read', 'update'],  # Own profile only
                 'department': ['read', 'update'],  # If HoD
                 'subject': ['read', 'update'],  # Own subjects
+                'topic': ['create', 'read', 'update', 'delete'],  # Topics for their subjects
                 'importlog': ['create', 'read'],  # Own imports
             },
             'learning': {
@@ -95,6 +98,7 @@ class RoleBasedPermission(BasePermission):
                 'teacher': ['read'],
                 'department': ['read'],
                 'subject': ['read'],
+                'topic': ['read'],  # Read topics for subjects
                 'importlog': [],
             },
             'learning': {
@@ -276,6 +280,10 @@ def create_permission_groups():
             'academics.change_subject',
             'academics.delete_subject',
             'academics.view_subject',
+            'academics.add_topic',
+            'academics.change_topic',
+            'academics.delete_topic',
+            'academics.view_topic',
             'academics.view_importlog',
             'learning.view_activitysheet',
             'learning.view_validation',
@@ -295,6 +303,10 @@ def create_permission_groups():
             'academics.change_department',  # If HoD
             'academics.view_subject',
             'academics.change_subject',  # Own subjects
+            'academics.add_topic',
+            'academics.change_topic',
+            'academics.delete_topic',
+            'academics.view_topic',
             'academics.add_importlog',
             'academics.view_importlog',
             'learning.add_activitysheet',
@@ -315,6 +327,7 @@ def create_permission_groups():
             'academics.view_teacher',
             'academics.view_department',
             'academics.view_subject',
+            'academics.view_topic',
             'learning.add_activitysheet',
             'learning.change_activitysheet',
             'learning.view_activitysheet',

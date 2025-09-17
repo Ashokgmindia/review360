@@ -142,6 +142,30 @@ class Department(models.Model):
         return f"{self.name} ({self.code})"
 
 
+class Topic(models.Model):
+    """Topics within a subject."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    subject = models.ForeignKey("Subject", on_delete=models.CASCADE, related_name="topics")
+    order = models.PositiveIntegerField(default=0, help_text="Order of the topic within the subject")
+    is_active = models.BooleanField(default=True)
+    
+    # System Fields
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.name} - {self.subject.name}"
+
+    class Meta:
+        ordering = ['order', 'name']
+        unique_together = ("subject", "name")
+        indexes = [
+            models.Index(fields=['subject', 'order']),
+            models.Index(fields=['subject', 'is_active']),
+        ]
+
+
 class Subject(models.Model):
     # Basic Information
     name = models.CharField(max_length=100)

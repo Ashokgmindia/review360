@@ -1,8 +1,10 @@
 from rest_framework import viewsets, permissions, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .models import Class, Student, ImportLog, Department, Subject, Teacher
+from .models import Class, Student, ImportLog, Department, Subject, Teacher, Topic
 from .serializers import (
     ClassSerializer,
     StudentSerializer,
@@ -10,6 +12,7 @@ from .serializers import (
     DepartmentSerializer,
     SubjectSerializer,
     TeacherSerializer,
+    TopicSerializer,
 )
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
@@ -118,6 +121,27 @@ class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
+    
+    @action(detail=True, methods=['get'], url_path='topics')
+    def get_topics(self, request, pk=None):
+        """Get all topics for a specific subject."""
+        subject = self.get_object()
+        topics = subject.topics.all().order_by('order', 'name')
+        serializer = TopicSerializer(topics, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='topics')
+    def create_topic(self, request, pk=None):
+        """Create a new topic for a specific subject."""
+        subject = self.get_object()
+        # Add subject_id to the request data
+        data = request.data.copy()
+        data['subject_id'] = subject.id
+        serializer = TopicSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
 
 
 @extend_schema_view(
@@ -136,6 +160,47 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
     ordering_fields = ["last_name", "first_name", "date_of_joining"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Academics"]),
+    retrieve=extend_schema(tags=["Academics"]),
+    create=extend_schema(tags=["Academics"]),
+    update=extend_schema(tags=["Academics"]),
+    partial_update=extend_schema(tags=["Academics"]),
+    destroy=extend_schema(tags=["Academics"]),
+)
+class TopicViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
+    queryset = Topic.objects.select_related("subject", "subject__college").order_by("subject", "order", "name")
+    serializer_class = TopicSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "order", "created_at"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        
+        # Filter by college through subject relationship
+        if hasattr(user, 'college_id') and user.college_id:
+            qs = qs.filter(subject__college_id=user.college_id)
+        
+        # Filter by subject if subject_id is provided in query params
+        subject_id = self.request.query_params.get('subject_id')
+        if subject_id:
+            qs = qs.filter(subject_id=subject_id)
+        
+        return qs
+    
+    def perform_create(self, serializer):
+        # The serializer will handle subject_id validation and subject assignment
+        # No need for additional logic here as it's handled in the serializer
+        serializer.save()
 
 
 

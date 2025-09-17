@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db import models
 from iam.models import User
 
-from .models import Department, Subject, Teacher, Class, Student, ImportLog
+from .models import Department, Subject, Teacher, Class, Student, ImportLog, Topic
 
 
 @admin.register(Department)
@@ -277,5 +277,29 @@ class ImportLogAdmin(admin.ModelAdmin):
         if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN and request.user.college_id:
             return qs.filter(college_id=request.user.college_id)
         return qs.none()
+
+
+@admin.register(Topic)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ("name", "subject", "order", "is_active", "created_at")
+    list_filter = ("is_active", "subject", "created_at")
+    search_fields = ("name", "description", "subject__name")
+    list_editable = ("order", "is_active")
+    ordering = ("subject", "order", "name")
+    
+    fieldsets = (
+        ("Basic Information", {
+            "fields": ("name", "description", "subject")
+        }),
+        ("Organization", {
+            "fields": ("order", "is_active")
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
+    
+    readonly_fields = ("created_at", "updated_at")
 
 
