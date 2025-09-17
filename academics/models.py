@@ -8,7 +8,7 @@ class Class(models.Model):
     academic_year = models.CharField(max_length=9)
     is_active = models.BooleanField(default=True)
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="classes")
-    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="teaching_classes")
+    teacher = models.ForeignKey("Teacher", on_delete=models.SET_NULL, null=True, blank=True, related_name="teaching_classes")
     section = models.CharField(max_length=10, blank=True, default="")
     program = models.CharField(max_length=100, blank=True, default="")
     semester = models.IntegerField(null=True, blank=True)
@@ -20,6 +20,11 @@ class Class(models.Model):
     class Meta:
         verbose_name = "Class"
         verbose_name_plural = "Classes"
+        indexes = [
+            models.Index(fields=['college', 'academic_year']),
+            models.Index(fields=['teacher', 'academic_year']),
+            models.Index(fields=['is_active']),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.name} ({self.academic_year})"
@@ -69,6 +74,13 @@ class Student(models.Model):
 
     class Meta:
         unique_together = ("college", "student_number")
+        indexes = [
+            models.Index(fields=['college', 'is_active']),
+            models.Index(fields=['class_ref', 'academic_year']),
+            models.Index(fields=['department', 'academic_year']),
+            models.Index(fields=['student_number']),
+            models.Index(fields=['email']),
+        ]
 
 
 class ImportLog(models.Model):
@@ -114,12 +126,17 @@ class Department(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20)
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="departments")
-    hod = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="head_of_departments")
+    hod = models.ForeignKey("Teacher", on_delete=models.SET_NULL, null=True, blank=True, related_name="head_of_departments")
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ("college", "code")
+        indexes = [
+            models.Index(fields=['college', 'is_active']),
+            models.Index(fields=['code']),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.name} ({self.code})"
@@ -137,6 +154,7 @@ class Subject(models.Model):
     semester = models.IntegerField(null=True, blank=True)
     credits = models.IntegerField(default=0)
     is_elective = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     
     # Curriculum Resources
     syllabus_file = models.FileField(upload_to="syllabus/", null=True, blank=True)
@@ -150,6 +168,11 @@ class Subject(models.Model):
 
     class Meta:
         unique_together = ("college", "code")
+        indexes = [
+            models.Index(fields=['college', 'is_active']),
+            models.Index(fields=['department', 'semester']),
+            models.Index(fields=['code']),
+        ]
 
 
 class Teacher(models.Model):
@@ -210,6 +233,11 @@ class Teacher(models.Model):
 
     class Meta:
         unique_together = ("college", "employee_id")
+        indexes = [
+            models.Index(fields=['college', 'is_active']),
+            models.Index(fields=['department', 'is_active']),
+            models.Index(fields=['employee_id']),
+        ]
 
     
     
@@ -220,19 +248,4 @@ class Teacher(models.Model):
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    def __str__(self) -> str:  # pragma: no cover
-        return f"{self.first_name} {self.last_name}"
 

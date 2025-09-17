@@ -13,7 +13,7 @@ class FollowUpSession(models.Model):
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="follow_up_sessions")
     student = models.ForeignKey("academics.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
     activity_sheet = models.ForeignKey("learning.ActivitySheet", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
-    teacher = models.ForeignKey("iam.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
+    teacher = models.ForeignKey("academics.Teacher", on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_up_sessions")
     student_name = models.CharField(max_length=200)
     activity_sheet_title = models.CharField(max_length=255, blank=True, default="")
     teacher_name = models.CharField(max_length=200, blank=True, default="")
@@ -25,6 +25,17 @@ class FollowUpSession(models.Model):
     academic_year = models.CharField(max_length=9)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.student_name} - {self.session_datetime.strftime('%Y-%m-%d %H:%M')}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['college', 'academic_year']),
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['teacher', 'session_datetime']),
+            models.Index(fields=['status']),
+        ]
 
 
 

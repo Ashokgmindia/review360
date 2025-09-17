@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
+from iam.permissions import FieldLevelPermission
 from .models import Class, Student, ImportLog, Department, Subject, Teacher
 
 
@@ -29,12 +30,22 @@ class StudentSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
+            "phone_number",
+            "birth_date",
+            "blood_group",
+            "address",
+            "profile_photo",
             "class_ref",
             "academic_year",
-            "is_active",
+            "college",
             "department",
             "student_number",
-            "birth_date",
+            "admission_date",
+            "graduation_date",
+            "status",
+            "guardian_name",
+            "guardian_contact",
+            "is_active",
             "metadata",
             "created_at",
             "updated_at",
@@ -56,6 +67,22 @@ class StudentSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         if not user or not getattr(user, "is_authenticated", False):
             return attrs
+            
+        # Field-level permission validation
+        user_role = getattr(user, "role", None)
+        if user_role == "student":
+            # Students cannot modify academic details
+            readonly_fields = ["class_ref", "academic_year", "college", "department", "student_number", "status"]
+            for field in readonly_fields:
+                if field in attrs:
+                    raise serializers.ValidationError({field: f"Students cannot modify {field}"})
+        elif user_role == "teacher":
+            # Teachers have limited access to student data
+            readonly_fields = ["class_ref", "academic_year", "college", "department", "student_number", "status"]
+            for field in readonly_fields:
+                if field in attrs:
+                    raise serializers.ValidationError({field: f"Teachers cannot modify {field}"})
+        
         allowed = self._allowed_college_ids(user)
         # Infer or validate college from class_ref or department
         class_ref = attrs.get("class_ref")

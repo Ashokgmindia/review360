@@ -12,6 +12,7 @@ from .serializers import (
     TeacherSerializer,
 )
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
+from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
 
 
 @extend_schema_view(
@@ -25,15 +26,7 @@ from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, Act
 class ClassViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Class.objects.select_related("college", "teacher").order_by("name")
     serializer_class = ClassSerializer
-    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
-    role_perms = {
-        "list": {"superadmin", "college_admin", "teacher"},
-        "retrieve": {"superadmin", "college_admin", "teacher"},
-        "create": {"superadmin", "college_admin"},
-        "update": {"superadmin", "college_admin"},
-        "partial_update": {"superadmin", "college_admin"},
-        "destroy": {"superadmin", "college_admin"},
-    }
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["academic_year", "is_active"]
     search_fields = ["name", "academic_year"]
@@ -62,15 +55,7 @@ class ClassViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
 class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Student.objects.select_related("class_ref", "department", "college").order_by("last_name", "first_name")
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
-    role_perms = {
-        "list": {"superadmin", "college_admin", "teacher"},
-        "retrieve": {"superadmin", "college_admin", "teacher"},
-        "create": {"superadmin", "college_admin"},
-        "update": {"superadmin", "college_admin"},
-        "partial_update": {"superadmin", "college_admin"},
-        "destroy": {"superadmin", "college_admin"},
-    }
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["academic_year", "is_active", "class_ref"]
     search_fields = ["first_name", "last_name", "email"]
@@ -94,7 +79,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
 class ImportLogViewSet(CollegeScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = ImportLog.objects.all().order_by("-imported_at")
     serializer_class = ImportLogSerializer
-    permission_classes = [IsAuthenticatedAndScoped]
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["class_ref"]
     ordering_fields = ["imported_at", "imported_count", "errors_count"]
@@ -111,15 +96,7 @@ class ImportLogViewSet(CollegeScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet
 class DepartmentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Department.objects.select_related("college", "hod").order_by("name")
     serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
-    role_perms = {
-        "list": {"superadmin", "college_admin", "teacher"},
-        "retrieve": {"superadmin", "college_admin", "teacher"},
-        "create": {"superadmin", "college_admin"},
-        "update": {"superadmin", "college_admin"},
-        "partial_update": {"superadmin", "college_admin"},
-        "destroy": {"superadmin", "college_admin"},
-    }
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
@@ -136,15 +113,7 @@ class DepartmentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
 class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.select_related("department", "college").order_by("name")
     serializer_class = SubjectSerializer
-    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
-    role_perms = {
-        "list": {"superadmin", "college_admin", "teacher"},
-        "retrieve": {"superadmin", "college_admin", "teacher"},
-        "create": {"superadmin", "college_admin"},
-        "update": {"superadmin", "college_admin"},
-        "partial_update": {"superadmin", "college_admin"},
-        "destroy": {"superadmin", "college_admin"},
-    }
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
@@ -161,15 +130,7 @@ class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
 class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Teacher.objects.select_related("user", "college", "department").prefetch_related("subjects_handled").order_by("last_name", "first_name")
     serializer_class = TeacherSerializer
-    permission_classes = [IsAuthenticatedAndScoped, ActionRolePermission]
-    role_perms = {
-        "list": {"superadmin", "college_admin"},
-        "retrieve": {"superadmin", "college_admin"},
-        "create": {"superadmin", "college_admin"},
-        "update": {"superadmin", "college_admin"},
-        "partial_update": {"superadmin", "college_admin"},
-        "destroy": {"superadmin", "college_admin"},
-    }
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
