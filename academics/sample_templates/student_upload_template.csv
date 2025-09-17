@@ -1,0 +1,4 @@
+first_name,last_name,email,student_number,academic_year,phone_number,birth_date,blood_group,address,class_name,department_code,admission_date,graduation_date,status,guardian_name,guardian_contact
+Alice,Williams,alice.williams@student.edu,STU001,2023-24,1111111111,2005-03-15,A+,101 Student St,Computer Science 101,CS,2023-08-15,,enrolled,Robert Williams,2222222222
+Bob,Brown,bob.brown@student.edu,STU002,2023-24,1111111112,2005-07-22,B+,102 Student St,Computer Science 101,CS,2023-08-15,,enrolled,Mary Brown,2222222223
+Carol,Davis,carol.davis@student.edu,STU003,2023-24,1111111113,2005-11-08,AB+,103 Student St,Computer Science 102,CS,2023-08-15,,enrolled,James Davis,2222222224

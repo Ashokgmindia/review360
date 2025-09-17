@@ -1,0 +1,4 @@
+first_name,last_name,email,employee_id,phone_number,emergency_contact,gender,date_of_birth,blood_group,address,date_of_joining,employment_type,salary,designation,department_code,role_type,is_hod,highest_qualification,specialization,experience_years,research_publications,certifications,leaves_remaining
+John,Doe,john.doe@college.edu,EMP001,1234567890,9876543210,Male,1985-05-15,A+,123 Main St,2023-01-15,full-time,50000,Professor,CS,Teaching,false,PhD,Computer Science,10,5,Microsoft Certified,20
+Jane,Smith,jane.smith@college.edu,EMP002,1234567891,9876543211,Female,1988-08-20,B+,456 Oak Ave,2023-02-01,full-time,45000,Associate Professor,CS,Teaching,false,MS,Data Science,8,3,Google Cloud Certified,18
+Mike,Johnson,mike.johnson@college.edu,EMP003,1234567892,9876543212,Male,1980-12-10,O+,789 Pine St,2023-03-01,part-time,30000,Lecturer,CS,Teaching,false,MS,Software Engineering,12,2,AWS Certified,15

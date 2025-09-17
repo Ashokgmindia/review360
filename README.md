@@ -154,7 +154,7 @@ A comprehensive Django-based multi-tenant SaaS application for academic institut
 
 ### Environment Variables
 
-```bash
+   ```bash
 # Django Settings
 DJANGO_SECRET_KEY=your-secret-key
 DJANGO_DEBUG=0
@@ -224,7 +224,7 @@ The application uses PostgreSQL with comprehensive indexing for optimal performa
 ## 🧪 Testing
 
 ### Run Tests
-```bash
+   ```bash
 # Run all tests
 python manage.py test
 

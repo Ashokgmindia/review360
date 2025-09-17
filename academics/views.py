@@ -72,6 +72,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         return qs
 
 
+
 @extend_schema_view(
     list=extend_schema(tags=["Academics"]),
     retrieve=extend_schema(tags=["Academics"]),
@@ -135,5 +136,6 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
     ordering_fields = ["last_name", "first_name", "date_of_joining"]
+
 
 
