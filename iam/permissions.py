@@ -117,40 +117,70 @@ class RoleBasedPermission(BasePermission):
     
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
+            print("DEBUG RoleBasedPermission: User not authenticated")
             return False
             
         user_role = getattr(request.user, 'role', None)
         if not user_role:
+            print("DEBUG RoleBasedPermission: No user role")
             return False
             
         # Superadmin has all permissions
         if user_role == 'superadmin':
+            print("DEBUG RoleBasedPermission: Superadmin - ALLOWED")
             return True
             
         # Get the model name and action
         model_name = self._get_model_name(view)
         action = self._get_action_name(view)
+        app_name = self._get_app_name(view)
         
         if not model_name or not action:
             return False
             
         # Check if user's role has permission for this action on this model
         role_perms = self.ROLE_PERMISSIONS.get(user_role, {})
-        app_perms = role_perms.get(self._get_app_name(view), {})
+        app_perms = role_perms.get(app_name, {})
         model_perms = app_perms.get(model_name, [])
         
         return action in model_perms
     
     def _get_app_name(self, view):
         """Extract app name from view."""
-        if hasattr(view, 'queryset') and view.queryset:
+        # Try to get the model from the view's queryset
+        if hasattr(view, 'queryset') and view.queryset is not None:
             return view.queryset.model._meta.app_label
+        
+        # Fallback: try to get model from view class name
+        if hasattr(view, '__class__'):
+            class_name = view.__class__.__name__
+            if class_name.endswith('ViewSet'):
+                model_name = class_name[:-7].lower()  # Remove 'ViewSet' suffix
+                # Map common viewset names to app names
+                if model_name in ['topic', 'subject', 'department', 'class', 'student', 'teacher']:
+                    return 'academics'
+                elif model_name in ['activitysheet', 'validation']:
+                    return 'learning'
+                elif model_name in ['followupsession']:
+                    return 'followup'
+                elif model_name in ['auditlog', 'archiverecord']:
+                    return 'compliance'
+        
         return None
     
     def _get_model_name(self, view):
         """Extract model name from view."""
-        if hasattr(view, 'queryset') and view.queryset:
+        # Try to get the model from the view's queryset
+        if hasattr(view, 'queryset') and view.queryset is not None:
             return view.queryset.model._meta.model_name
+        
+        # Fallback: try to get model name from view class name
+        if hasattr(view, '__class__'):
+            class_name = view.__class__.__name__
+            if class_name.endswith('ViewSet'):
+                model_name = class_name[:-7].lower()  # Remove 'ViewSet' suffix
+                return model_name
+        
         return None
     
     def _get_action_name(self, view):
@@ -222,17 +252,19 @@ class TenantScopedPermission(BasePermission):
     
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
+            print("DEBUG TenantScopedPermission: User not authenticated")
             return False
             
         # Superadmin can access all tenants
         if getattr(request.user, 'role', None) == 'superadmin':
+            print("DEBUG TenantScopedPermission: Superadmin - ALLOWED")
             return True
             
         # Other users must belong to at least one college
         user_colleges = list(request.user.colleges.values_list('id', flat=True))
         if request.user.college_id:
             user_colleges.append(request.user.college_id)
-            
+        
         return len(user_colleges) > 0
 
 
