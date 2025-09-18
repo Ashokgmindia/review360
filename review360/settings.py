@@ -124,18 +124,47 @@ STORAGES = {
 
 
 # CORS
-# Prefer explicit origins; keep a dev-only escape hatch
-_cors_allow_all = os.environ.get("CORS_ALLOW_ALL", "0") == "1"
-if _cors_allow_all and not DEBUG:
-    _cors_allow_all = False
-    # In prod we never allow all; rely on explicit origins
-CORS_ALLOW_ALL_ORIGINS = _cors_allow_all
-CORS_ALLOWED_ORIGINS = [
-    o
-    for o in os.environ.get(
-        "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000"
-    ).split(",")
-    if o
+# When credentials are included, we cannot use wildcard origins
+# So we need to explicitly list allowed origins
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Never use wildcard when credentials are enabled
+
+# Default allowed origins for development
+_default_origins = [
+    "http://localhost:3000",
+    "http://localhost:8000", 
+    "http://localhost:8080",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8080",
+]
+
+# Add production origins if specified
+_production_origins = [
+    o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+
+CORS_ALLOWED_ORIGINS = _default_origins + _production_origins
+
+# Regex patterns for dynamic origins (useful for development)
+CORS_ALLOWED_ORIGINS_REGEXES = [
+    r"^http://localhost:\d+$",  # Allow any localhost port
+    r"^http://127\.0\.0\.1:\d+$",  # Allow any 127.0.0.1 port
+    r"^https://.*\.duckdns\.org:\d+$",  # Allow https duckdns subdomains with ports
+    r"^http://.*\.duckdns\.org:\d+$",  # Allow http duckdns subdomains with ports
+]
+
+# Additional CORS headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 

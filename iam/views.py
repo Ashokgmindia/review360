@@ -14,7 +14,7 @@ from .models import College, User
 from .serializers import (
     RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer, MeSerializer,
     OTPVerifySerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    EmailTokenObtainPairSerializer
+    EmailTokenObtainPairSerializer, LogoutSerializer
 )
 from .utils import generate_otp, send_otp_email
 
@@ -234,18 +234,34 @@ class IamTokenRefreshView(TokenRefreshView):
 
 @extend_schema(tags=["IAM"])
 class LogoutView(generics.GenericAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)  # Allow both authenticated and unauthenticated requests
+    serializer_class = LogoutSerializer
     
     def post(self, request, *args, **kwargs):
         try:
-            refresh_token = request.data.get("refresh")
+            # Validate the request data using the serializer
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            # Try to get refresh token from validated data
+            refresh_token = serializer.validated_data.get("refresh")
+            
             if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+                # If refresh token is provided, blacklist it
+                try:
+                    token = RefreshToken(refresh_token)
+                    token.blacklist()
+                    return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+                except TokenError:
+                    return Response({"detail": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
-        except TokenError:
-            return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+                # If no refresh token provided, just return success
+                # This allows clients to logout even if they don't have the refresh token
+                return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+                
         except Exception as e:
+            # Log the error for debugging but don't expose it to the client
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Logout error: {str(e)}")
             return Response({"detail": "An error occurred during logout."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
