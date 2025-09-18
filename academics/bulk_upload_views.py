@@ -12,6 +12,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from .bulk_upload_utils import process_teacher_user_bulk_upload, process_student_user_bulk_upload, BulkUploadError
+from .models import Teacher, Student
 from rest_framework.permissions import IsAuthenticated
 
 
@@ -52,8 +53,16 @@ def bulk_upload_teacher_users(request):
     """Bulk upload teacher users from file."""
     user = request.user
     
-    # Check if user has permission to add teachers
-    if not user.has_perm('academics.add_teacher'):
+    # Check if user has permission to add teachers using role-based permissions
+    from iam.permissions import RoleBasedPermission
+    permission_checker = RoleBasedPermission()
+    
+    # Create a mock view to check permissions
+    class MockView:
+        queryset = Teacher.objects.all()
+        action = 'create'
+    
+    if not permission_checker.has_permission(request, MockView()):
         return Response(
             {"error": "You don't have permission to add teachers. Contact your administrator."},
             status=status.HTTP_403_FORBIDDEN
@@ -128,8 +137,16 @@ def bulk_upload_student_users(request):
     """Bulk upload student users from file."""
     user = request.user
     
-    # Check if user has permission to add students
-    if not user.has_perm('academics.add_student'):
+    # Check if user has permission to add students using role-based permissions
+    from iam.permissions import RoleBasedPermission
+    permission_checker = RoleBasedPermission()
+    
+    # Create a mock view to check permissions
+    class MockView:
+        queryset = Student.objects.all()
+        action = 'create'
+    
+    if not permission_checker.has_permission(request, MockView()):
         return Response(
             {"error": "You don't have permission to add students. Contact your administrator."},
             status=status.HTTP_403_FORBIDDEN
