@@ -30,6 +30,7 @@ class LoginView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
+        remember_me = serializer.validated_data.get("remember_me", False)
         
         try:
             user_obj = User.objects.get(email=email)
@@ -48,6 +49,10 @@ class LoginView(generics.GenericAPIView):
         user.otp_created_at = timezone.now()
         user.save()
 
+        # Store remember_me in session for OTP verification step
+        request.session['remember_me'] = remember_me
+        request.session['otp_email'] = email # Store email to retrieve remember_me later
+
         subject = 'Your One-Time Password (OTP) for Login'
         message_template = 'Your OTP for authentication is: {otp}\n\nThis code is valid for 5 minutes.'
         send_otp_email(user.email, otp, subject, message_template)
@@ -65,6 +70,14 @@ class OTPVerifyView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
         otp = serializer.validated_data.get("otp")
+        
+        # Retrieve remember_me from session
+        remember_me = False
+        if request.session.get('otp_email') == email:
+            remember_me = request.session.get('remember_me', False)
+            # Clear session data after use
+            del request.session['remember_me']
+            del request.session['otp_email']
 
         try:
             user = User.objects.get(email=email)
@@ -82,7 +95,17 @@ class OTPVerifyView(generics.GenericAPIView):
         user.otp_created_at = None
         user.save()
 
+        # Generate refresh token with appropriate lifetime
         refresh = RefreshToken.for_user(user)
+        if remember_me:
+            # Longer-lived refresh token (e.g., 30 days)
+            refresh.set_exp(lifetime=timedelta(days=30))
+        else:
+            # Standard short-lived refresh token (e.g., 24 hours, which is the default)
+            # No explicit action needed if default is 24 hours, but setting it for clarity
+            from rest_framework_simplejwt.settings import api_settings
+            refresh.set_exp(lifetime=api_settings.REFRESH_TOKEN_LIFETIME)
+
         return Response({"refresh": str(refresh), "access": str(refresh.access_token)})
 
 

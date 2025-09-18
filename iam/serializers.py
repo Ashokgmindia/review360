@@ -20,11 +20,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 class EmailTokenObtainSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-
+    remember_me = serializers.BooleanField(default=False)
 class OTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
-
 class CollegeSerializer(serializers.ModelSerializer):
     class Meta:
         model = College
