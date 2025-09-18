@@ -36,3 +36,4 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(fields=('subject', 'name'), name='academics_topic_subject_name_unique'),
         ),
     ]
+
