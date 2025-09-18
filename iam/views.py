@@ -98,13 +98,11 @@ class OTPVerifyView(generics.GenericAPIView):
         # Generate refresh token with appropriate lifetime
         refresh = RefreshToken.for_user(user)
         if remember_me:
-            # Longer-lived refresh token (e.g., 30 days)
+            # Longer-lived refresh token (30 days)
             refresh.set_exp(lifetime=timedelta(days=30))
         else:
-            # Standard short-lived refresh token (e.g., 24 hours, which is the default)
-            # No explicit action needed if default is 24 hours, but setting it for clarity
-            from rest_framework_simplejwt.settings import api_settings
-            refresh.set_exp(lifetime=api_settings.REFRESH_TOKEN_LIFETIME)
+            # Standard short-lived refresh token (24 hours)
+            refresh.set_exp(lifetime=timedelta(hours=24))
 
         return Response({"refresh": str(refresh), "access": str(refresh.access_token)})
 
