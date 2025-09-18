@@ -77,4 +77,4 @@ class EmailTokenObtainPairSerializer(serializers.Serializer):
             raise serializers.ValidationError("Must include 'email' and 'password'")
 
 class LogoutSerializer(serializers.Serializer):
-    refresh = serializers.CharField(required=False, help_text="Refresh token to blacklist (optional)")
+    pass
