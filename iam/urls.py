@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RegisterView, LoginView, OTPVerifyView, CollegeViewSet, 
     IamTokenObtainPairView, IamTokenRefreshView, MeView,
-    PasswordResetRequestView, PasswordResetConfirmView
+    PasswordResetRequestView, PasswordResetConfirmView, LogoutView
 )
 
 router = DefaultRouter()
@@ -17,6 +17,7 @@ urlpatterns = [
     path("auth/password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("token/", IamTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", IamTokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("me/", MeView.as_view(), name="me"),
     path("", include(router.urls)),
 ]

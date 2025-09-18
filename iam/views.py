@@ -5,6 +5,7 @@ from rest_framework import generics, status, viewsets, permissions, filters
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.exceptions import TokenError
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from academics import serializers
@@ -12,7 +13,8 @@ from academics import serializers
 from .models import College, User
 from .serializers import (
     RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer, MeSerializer,
-    OTPVerifySerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+    OTPVerifySerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+    EmailTokenObtainPairSerializer
 )
 from .utils import generate_otp, send_otp_email
 
@@ -222,9 +224,28 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
 @extend_schema(tags=["IAM"])
 class IamTokenObtainPairView(TokenObtainPairView):
-    pass
+    serializer_class = EmailTokenObtainPairSerializer
 
 
 @extend_schema(tags=["IAM"])
 class IamTokenRefreshView(TokenRefreshView):
     pass
+
+
+@extend_schema(tags=["IAM"])
+class LogoutView(generics.GenericAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def post(self, request, *args, **kwargs):
+        try:
+            refresh_token = request.data.get("refresh")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        except TokenError:
+            return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": "An error occurred during logout."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
