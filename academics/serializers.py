@@ -13,13 +13,43 @@ class ClassSerializer(serializers.ModelSerializer):
             "name",
             "academic_year",
             "is_active",
+            "college",
+            "teacher",
             "section",
             "program",
             "semester",
             "room_number",
             "max_students",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        
+        # Determine college from creator; superadmin must specify via user's single allowed or error
+        allowed = []
+        try:
+            allowed = list(getattr(user, "colleges").values_list("id", flat=True))
+        except Exception:
+            allowed = []
+        if getattr(user, "college_id", None):
+            allowed.append(user.college_id)
+        allowed = list({cid for cid in allowed if cid})
+        
+        college = getattr(user, "college", None)
+        if college is None:
+            if len(allowed) == 1:
+                from iam.models import College
+                college = College.objects.get(id=allowed[0])
+            else:
+                raise serializers.ValidationError({"college": "College cannot be determined for current user."})
+        
+        # Set the college field
+        validated_data['college'] = college
+        return Class.objects.create(**validated_data)
 
 
 class StudentSerializer(serializers.ModelSerializer):
