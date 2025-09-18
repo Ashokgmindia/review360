@@ -14,7 +14,7 @@ from .models import College, User
 from .serializers import (
     RegisterSerializer, EmailTokenObtainSerializer, CollegeSerializer, MeSerializer,
     OTPVerifySerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    EmailTokenObtainPairSerializer, LogoutSerializer
+    EmailTokenObtainPairSerializer, LogoutSerializer, TokenVerifySerializer
 )
 from .utils import generate_otp, send_otp_email
 
@@ -230,6 +230,46 @@ class IamTokenObtainPairView(TokenObtainPairView):
 @extend_schema(tags=["IAM"])
 class IamTokenRefreshView(TokenRefreshView):
     pass
+
+
+@extend_schema(tags=["IAM"])
+class TokenVerifyView(generics.GenericAPIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = TokenVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        access_token = serializer.validated_data.get("access_token")
+        
+        try:
+            # Try to decode and validate the token
+            from rest_framework_simplejwt.tokens import AccessToken
+            token = AccessToken(access_token)
+            
+            # Get user from token
+            user_id = token.get('user_id')
+            if user_id:
+                try:
+                    user = User.objects.get(id=user_id)
+                    if not user.is_active:
+                        return Response({"detail": "User account is disabled"}, status=status.HTTP_401_UNAUTHORIZED)
+                    
+                    return Response({
+                        "valid": True,
+                        "user_id": user.id,
+                        "email": user.email,
+                        "role": getattr(user, "role", None)
+                    }, status=status.HTTP_200_OK)
+                except User.DoesNotExist:
+                    return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response({"detail": "Invalid token payload"}, status=status.HTTP_401_UNAUTHORIZED)
+                
+        except TokenError as e:
+            return Response({"detail": "Invalid or expired token"}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            return Response({"detail": "Token verification failed"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @extend_schema(tags=["IAM"])
