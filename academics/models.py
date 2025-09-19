@@ -83,43 +83,6 @@ class Student(models.Model):
         ]
 
 
-class ImportLog(models.Model):
-    # Import Context
-    class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name="import_logs")
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="import_logs")
-    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="imports")
-    
-    # File Information
-    filename = models.CharField(max_length=255)
-    
-    # Import Results
-    imported_count = models.IntegerField(default=0)
-    errors_count = models.IntegerField(default=0)
-    error_details = models.JSONField(blank=True, null=True)
-    status = models.CharField(
-        max_length=20, 
-        choices=[
-            ("success", "Success"),
-            ("failed", "Failed"),
-            ("partial", "Partial")
-        ], 
-        default="success"
-    )
-    
-    # Performance & Notes
-    duration = models.DurationField(null=True, blank=True)
-    remarks = models.TextField(blank=True, default="")
-    
-    # System Fields
-    imported_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self) -> str:  # pragma: no cover
-        return f"Import: {self.filename} - {self.status} ({self.imported_count} records)"
-
-    class Meta:
-        ordering = ['-imported_at']
-
-
 
 
 class Department(models.Model):
@@ -215,7 +178,7 @@ class Teacher(models.Model):
     profile_photo = models.ImageField(upload_to="teacher_photos/", null=True, blank=True)
     
     # Employment Information
-    employee_id = models.CharField(max_length=50)
+    employee_id = models.CharField(max_length=50, blank=True, default="")
     date_of_joining = models.DateField(null=True, blank=True)
     employment_type = models.CharField(
         max_length=50, 
@@ -224,7 +187,8 @@ class Teacher(models.Model):
             ("part-time", "Part-Time"),
             ("visiting", "Visiting")
         ], 
-        default="full-time"
+        blank=True,
+        default=""
     )
     salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -241,22 +205,23 @@ class Teacher(models.Model):
     specialization = models.CharField(max_length=100, blank=True, default="")
     experience_years = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     subjects_handled = models.ManyToManyField(Subject, blank=True, related_name="teachers")
-    research_publications = models.IntegerField(default=0)
+    research_publications = models.IntegerField(null=True, blank=True)
     certifications = models.TextField(blank=True, default="")
     resume = models.FileField(upload_to="teacher_cv/", null=True, blank=True)
     
     # Leave Management
-    leaves_remaining = models.IntegerField(default=0)
+    leaves_remaining = models.IntegerField(null=True, blank=True)
     
     # System Fields
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"{self.first_name} {self.last_name} ({self.employee_id})"
+        if self.employee_id:
+            return f"{self.first_name} {self.last_name} ({self.employee_id})"
+        return f"{self.first_name} {self.last_name}"
 
     class Meta:
-        unique_together = ("college", "employee_id")
         indexes = [
             models.Index(fields=['college', 'is_active']),
             models.Index(fields=['department', 'is_active']),

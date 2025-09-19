@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
-from .models import Class, Student, ImportLog, Department, Subject, Teacher, Topic
+from .models import Class, Student, Department, Subject, Teacher, Topic
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -130,21 +130,6 @@ class StudentSerializer(serializers.ModelSerializer):
         if target_college_id not in allowed:
             raise serializers.ValidationError({"college": "Not allowed for this user."})
         return attrs
-
-
-class ImportLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ImportLog
-        fields = [
-            "id",
-            "class_ref",
-            "filename",
-            "imported_count",
-            "errors_count",
-            "error_details",
-            "imported_at",
-        ]
-        read_only_fields = ["id", "imported_at"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):

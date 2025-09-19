@@ -11,7 +11,7 @@ from drf_spectacular.openapi import AutoSchema
 from django.db import transaction
 from rest_framework import serializers
 
-from .bulk_upload_utils import process_teacher_user_bulk_upload, process_student_user_bulk_upload, BulkUploadError
+from .bulk_upload_utils import process_teacher_bulk_upload, process_student_user_bulk_upload, BulkUploadError
 from .models import Teacher, Student
 from rest_framework.permissions import IsAuthenticated
 
@@ -25,8 +25,8 @@ class BulkUploadResponseSerializer(serializers.Serializer):
 
 @extend_schema(
     tags=["Academics"],
-    summary="Bulk upload teacher users",
-    description="Upload teacher users in bulk via Excel, CSV, or JSON file. Requires 'academics.add_teacher' permission. Creates User accounts with Teacher role only.",
+    summary="Bulk upload teachers",
+    description="Upload teachers in bulk via Excel, CSV, or JSON file. Requires 'academics.add_teacher' permission. Creates both User accounts with Teacher role and Teacher profile records.",
     request={
         'multipart/form-data': {
             'type': 'object',
@@ -50,7 +50,7 @@ class BulkUploadResponseSerializer(serializers.Serializer):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_upload_teacher_users(request):
-    """Bulk upload teacher users from file."""
+    """Bulk upload teachers from file."""
     user = request.user
     
     # Check if user has permission to add teachers using role-based permissions
@@ -86,10 +86,10 @@ def bulk_upload_teacher_users(request):
         )
     
     try:
-        result = process_teacher_user_bulk_upload(file, college, user)
+        result = process_teacher_bulk_upload(file, college, user)
         
         return Response({
-            "message": f"Bulk upload completed. {result['success_count']} teacher users created successfully.",
+            "message": f"Bulk upload completed. {result['success_count']} teachers created successfully.",
             "success_count": result['success_count'],
             "error_count": result['error_count'],
             "errors": result['errors']

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db import models
 from iam.models import User
 
-from .models import Department, Subject, Teacher, Class, Student, ImportLog, Topic
+from .models import Department, Subject, Teacher, Class, Student, Topic
 
 
 @admin.register(Department)
@@ -263,20 +263,6 @@ class StudentAdmin(admin.ModelAdmin):
             if request.user.college_id and not obj.college_id:
                 obj.college = request.user.college
         super().save_model(request, obj, form, change)
-
-
-@admin.register(ImportLog)
-class ImportLogAdmin(admin.ModelAdmin):
-    list_display = ("filename", "class_ref", "imported_count", "errors_count", "imported_at")
-    search_fields = ("filename",)
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if getattr(request.user, "role", None) == User.Role.SUPERADMIN:
-            return qs
-        if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN and request.user.college_id:
-            return qs.filter(college_id=request.user.college_id)
-        return qs.none()
 
 
 @admin.register(Topic)

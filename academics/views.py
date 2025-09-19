@@ -4,11 +4,10 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .models import Class, Student, ImportLog, Department, Subject, Teacher, Topic
+from .models import Class, Student, Department, Subject, Teacher, Topic
 from .serializers import (
     ClassSerializer,
     StudentSerializer,
-    ImportLogSerializer,
     DepartmentSerializer,
     SubjectSerializer,
     TeacherSerializer,
@@ -74,19 +73,6 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             qs = qs.filter(class_ref__teacher_id=user.id)
         return qs
 
-
-
-@extend_schema_view(
-    list=extend_schema(tags=["Academics"]),
-    retrieve=extend_schema(tags=["Academics"]),
-)
-class ImportLogViewSet(CollegeScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = ImportLog.objects.all().order_by("-imported_at")
-    serializer_class = ImportLogSerializer
-    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["class_ref"]
-    ordering_fields = ["imported_at", "imported_count", "errors_count"]
 
 
 @extend_schema_view(

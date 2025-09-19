@@ -11,6 +11,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from iam.models import College
+from .models import Teacher, Student, Department, Class
 
 User = get_user_model()
 
@@ -63,13 +64,13 @@ class BulkUploadProcessor:
 class TeacherBulkUploadProcessor(BulkUploadProcessor):
     """Processor for bulk teacher uploads."""
     
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'email', 'employee_id']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'email']
     OPTIONAL_FIELDS = [
         'phone_number', 'emergency_contact', 'gender', 'date_of_birth', 
         'blood_group', 'address', 'date_of_joining', 'employment_type',
         'salary', 'designation', 'department_code', 'role_type', 'is_hod',
         'highest_qualification', 'specialization', 'experience_years',
-        'research_publications', 'certifications', 'leaves_remaining'
+        'research_publications', 'certifications', 'leaves_remaining', 'employee_id'
     ]
     
     def validate_data(self):
@@ -95,9 +96,9 @@ class TeacherBulkUploadProcessor(BulkUploadProcessor):
         """Process and create teacher records."""
         self.validate_data()
         
-        with transaction.atomic():
-            for index, row in self.data.iterrows():
-                try:
+        for index, row in self.data.iterrows():
+            try:
+                with transaction.atomic():
                     # Get department if specified
                     department = None
                     if 'department_code' in row and pd.notna(row['department_code']):
@@ -122,7 +123,7 @@ class TeacherBulkUploadProcessor(BulkUploadProcessor):
                         college=self.college,
                         first_name=row['first_name'],
                         last_name=row['last_name'],
-                        phone_number=row.get('phone_number', ''),
+                        phone_number=row.get('phone_number', '')[:20],  # Truncate to 20 chars
                     )
                     
                     # Add user to college's member users
@@ -135,22 +136,34 @@ class TeacherBulkUploadProcessor(BulkUploadProcessor):
                         'first_name': row['first_name'],
                         'last_name': row['last_name'],
                         'email': row['email'],
-                        'employee_id': row['employee_id'],
                         'department': department,
                     }
                     
-                    # Add optional fields
+                    # Add employee_id if provided
+                    if 'employee_id' in row and pd.notna(row['employee_id']):
+                        teacher_data['employee_id'] = row['employee_id']
+                    
+                    # Add optional fields with length validation
                     for field in self.OPTIONAL_FIELDS:
                         if field in row and pd.notna(row[field]):
                             if field == 'department_code':
                                 continue  # Already handled above
-                            teacher_data[field] = row[field]
+                            
+                            value = row[field]
+                            
+                            # Apply length limits for specific fields
+                            if field in ['phone_number', 'emergency_contact'] and len(str(value)) > 20:
+                                value = str(value)[:20]
+                            elif field == 'blood_group' and len(str(value)) > 5:
+                                value = str(value)[:5]
+                            
+                            teacher_data[field] = value
                     
                     Teacher.objects.create(**teacher_data)
                     self.success_count += 1
                     
-                except Exception as e:
-                    self.errors.append(f"Row {index + 1}: {str(e)}")
+            except Exception as e:
+                self.errors.append(f"Row {index + 1}: {str(e)}")
         
         return {
             'success_count': self.success_count,
@@ -199,9 +212,9 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
         """Process and create student records."""
         self.validate_data()
         
-        with transaction.atomic():
-            for index, row in self.data.iterrows():
-                try:
+        for index, row in self.data.iterrows():
+            try:
+                with transaction.atomic():
                     # Get class if specified
                     class_ref = None
                     if 'class_name' in row and pd.notna(row['class_name']):
@@ -244,7 +257,7 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                         college=self.college,
                         first_name=row['first_name'],
                         last_name=row['last_name'],
-                        phone_number=row.get('phone_number', ''),
+                        phone_number=row.get('phone_number', '')[:20],  # Truncate to 20 chars
                     )
                     
                     # Add user to college's member users
@@ -261,18 +274,29 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                         'department': department,
                     }
                     
-                    # Add optional fields
+                    # Add optional fields with length validation
                     for field in self.OPTIONAL_FIELDS:
                         if field in row and pd.notna(row[field]):
                             if field in ['class_name', 'department_code']:
                                 continue  # Already handled above
-                            student_data[field] = row[field]
+                            
+                            value = row[field]
+                            
+                            # Apply length limits for specific fields
+                            if field == 'phone_number' and len(str(value)) > 20:
+                                value = str(value)[:20]
+                            elif field == 'blood_group' and len(str(value)) > 5:
+                                value = str(value)[:5]
+                            elif field == 'guardian_contact' and len(str(value)) > 20:
+                                value = str(value)[:20]
+                            
+                            student_data[field] = value
                     
                     Student.objects.create(**student_data)
                     self.success_count += 1
                     
-                except Exception as e:
-                    self.errors.append(f"Row {index + 1}: {str(e)}")
+            except Exception as e:
+                self.errors.append(f"Row {index + 1}: {str(e)}")
         
         return {
             'success_count': self.success_count,
@@ -284,13 +308,13 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
 class TeacherUserBulkUploadProcessor(BulkUploadProcessor):
     """Processor for bulk teacher user uploads - creates User accounts only."""
     
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'email', 'employee_id']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'email']
     OPTIONAL_FIELDS = [
         'phone_number', 'emergency_contact', 'gender', 'date_of_birth', 
         'blood_group', 'address', 'date_of_joining', 'employment_type',
         'salary', 'designation', 'department_code', 'role_type', 'is_hod',
         'highest_qualification', 'specialization', 'experience_years',
-        'research_publications', 'certifications', 'leaves_remaining'
+        'research_publications', 'certifications', 'leaves_remaining', 'employee_id'
     ]
     
     def validate_data(self):
@@ -331,9 +355,9 @@ class TeacherUserBulkUploadProcessor(BulkUploadProcessor):
                         college=self.college,
                         first_name=row['first_name'],
                         last_name=row['last_name'],
-                        phone_number=row.get('phone_number', ''),
-                        employee_id=row.get('employee_id', ''),
-                        designation=row.get('designation', ''),
+                        phone_number=row.get('phone_number', '')[:20],  # Truncate to 20 chars
+                        employee_id=row.get('employee_id', '')[:50],  # Truncate to 50 chars
+                        designation=row.get('designation', '')[:100],  # Truncate to 100 chars
                     )
                     
                     # Add user to college's member users
@@ -399,7 +423,7 @@ class StudentUserBulkUploadProcessor(BulkUploadProcessor):
                         college=self.college,
                         first_name=row['first_name'],
                         last_name=row['last_name'],
-                        phone_number=row.get('phone_number', ''),
+                        phone_number=row.get('phone_number', '')[:20],  # Truncate to 20 chars
                     )
                     
                     # Add user to college's member users
