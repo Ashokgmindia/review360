@@ -221,9 +221,6 @@ class ClassAdmin(admin.ModelAdmin):
                 # Process student bulk upload
                 result = process_student_bulk_upload(student_file, obj.college, request.user)
                 
-                # Debug: Print result to see what's happening
-                print(f"Admin bulk upload result: {result}")
-                
                 # Store upload results in class metadata for reference
                 obj.metadata = {
                     'student_upload_result': {

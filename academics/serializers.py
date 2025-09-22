@@ -34,7 +34,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "college", "created_at", "updated_at"]
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -61,7 +61,7 @@ class ClassSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError({"college": "College cannot be determined for current user."})
         
-        # Set the college field
+        # Set the college field - always use the user's college
         validated_data['college'] = college
         
         # Create the class
@@ -74,9 +74,6 @@ class ClassSerializer(serializers.ModelSerializer):
                 
                 # Process student bulk upload
                 result = process_student_bulk_upload(student_file, college, user)
-                
-                # Debug: Print result to see what's happening
-                print(f"Bulk upload result: {result}")
                 
                 # Store upload results in class metadata for reference
                 class_instance.metadata = {

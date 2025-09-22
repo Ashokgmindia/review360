@@ -35,7 +35,7 @@ from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantSco
                     'program': {'type': 'string', 'description': 'Program name'},
                     'semester': {'type': 'integer', 'description': 'Semester number'},
                     'room_number': {'type': 'string', 'description': 'Room number'},
-                    'max_students': {'type': 'integer', 'description': 'Maximum number of students'},
+                    'max_students': {'type': 'integer', 'description': 'Maximum number of students (optional)'},
                     'student_file': {
                         'type': 'string',
                         'format': 'binary',
