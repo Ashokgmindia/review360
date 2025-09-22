@@ -36,8 +36,6 @@ class RoleBasedPermission(BasePermission):
                 'importlog': ['read'],
             },
             'learning': {
-                'activitysheet': ['create', 'read', 'update', 'delete'],
-                'validation': ['create', 'read', 'update', 'delete'],
                 'subject': ['create', 'read', 'update', 'delete'],
                 'topic': ['create', 'read', 'update', 'delete'],
             },
@@ -60,8 +58,6 @@ class RoleBasedPermission(BasePermission):
                 'importlog': ['read'],
             },
             'learning': {
-                'activitysheet': ['read'],
-                'validation': ['read'],
                 'subject': ['create', 'read', 'update', 'delete'],
                 'topic': ['create', 'read', 'update', 'delete'],
             },
@@ -84,8 +80,6 @@ class RoleBasedPermission(BasePermission):
                 'importlog': ['create', 'read'],  # Own imports
             },
             'learning': {
-                'activitysheet': ['create', 'read', 'update'],
-                'validation': ['create', 'read', 'update'],
                 'subject': ['read', 'update'],  # Own subjects
                 'topic': ['create', 'read', 'update', 'delete'],  # Topics for their subjects
             },
@@ -108,8 +102,6 @@ class RoleBasedPermission(BasePermission):
                 'importlog': [],
             },
             'learning': {
-                'activitysheet': ['create', 'read', 'update'],
-                'validation': ['read'],
                 'subject': ['read'],
                 'topic': ['read'],
             },
@@ -167,7 +159,7 @@ class RoleBasedPermission(BasePermission):
                 # Map common viewset names to app names
                 if model_name in ['department', 'class', 'student', 'teacher']:
                     return 'academics'
-                elif model_name in ['topic', 'subject', 'activitysheet', 'validation']:
+                elif model_name in ['topic', 'subject']:
                     return 'learning'
                 elif model_name in ['followupsession']:
                     return 'followup'

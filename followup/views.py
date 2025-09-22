@@ -17,7 +17,7 @@ from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantSco
     destroy=extend_schema(tags=["Followup"]),
 )
 class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = FollowUpSession.objects.select_related("college", "student", "activity_sheet", "teacher").order_by("-session_datetime")
+    queryset = FollowUpSession.objects.select_related("college", "student", "subject", "topic", "teacher").order_by("-session_datetime")
     serializer_class = FollowUpSessionSerializer
     permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

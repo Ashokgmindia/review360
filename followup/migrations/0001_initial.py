@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('academics', '0001_initial'),
         ('iam', '0001_initial'),
-        ('learning', '__first__'),
+        ('learning', '0003_subject_topic'),  # Ensure Subject and Topic models exist
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -23,7 +23,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('student_name', models.CharField(max_length=200)),
-                ('activity_sheet_title', models.CharField(blank=True, default='', max_length=255)),
+                ('subject_name', models.CharField(blank=True, default='', max_length=255)),
+                ('topic_name', models.CharField(blank=True, default='', max_length=255)),
                 ('teacher_name', models.CharField(blank=True, default='', max_length=200)),
                 ('session_datetime', models.DateTimeField()),
                 ('location', models.CharField(blank=True, default='', max_length=255)),
@@ -33,7 +34,8 @@ class Migration(migrations.Migration):
                 ('academic_year', models.CharField(max_length=9)),
                 ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('activity_sheet', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='follow_up_sessions', to='learning.activitysheet')),
+                ('subject', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='follow_up_sessions', to='learning.subject')),
+                ('topic', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='follow_up_sessions', to='learning.topic')),
                 ('college', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='follow_up_sessions', to='iam.college')),
                 ('student', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='follow_up_sessions', to='academics.student')),
                 ('teacher', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='follow_up_sessions', to=settings.AUTH_USER_MODEL)),

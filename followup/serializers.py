@@ -9,10 +9,12 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
             "id",
             "college",
             "student",
-            "activity_sheet",
+            "subject",
+            "topic",
             "teacher",
             "student_name",
-            "activity_sheet_title",
+            "subject_name",
+            "topic_name",
             "teacher_name",
             "session_datetime",
             "location",
@@ -51,9 +53,12 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
         student = attrs.get("student")
         if student and student.college_id != college.id:
             raise serializers.ValidationError({"student": "Must belong to same college."})
-        activity_sheet = attrs.get("activity_sheet")
-        if activity_sheet and activity_sheet.college_id != college.id:
-            raise serializers.ValidationError({"activity_sheet": "Must belong to same college."})
+        subject = attrs.get("subject")
+        if subject and subject.college_id != college.id:
+            raise serializers.ValidationError({"subject": "Must belong to same college."})
+        topic = attrs.get("topic")
+        if topic and topic.subject.college_id != college.id:
+            raise serializers.ValidationError({"topic": "Must belong to same college."})
         teacher = attrs.get("teacher")
         if teacher and getattr(teacher, "college_id", None) not in (college.id, None):
             raise serializers.ValidationError({"teacher": "Must belong to same college."})
