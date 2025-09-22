@@ -4,14 +4,12 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .models import Class, Student, Department, Subject, Teacher, Topic
+from .models import Class, Student, Department, Teacher
 from .serializers import (
     ClassSerializer,
     StudentSerializer,
     DepartmentSerializer,
-    SubjectSerializer,
     TeacherSerializer,
-    TopicSerializer,
 )
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
@@ -100,24 +98,6 @@ class DepartmentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     partial_update=extend_schema(tags=["Academics"]),
     destroy=extend_schema(tags=["Academics"]),
 )
-class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Subject.objects.select_related("department", "college").order_by("name")
-    serializer_class = SubjectSerializer
-    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["name", "code"]
-    ordering_fields = ["name", "code"]
-    
-
-
-@extend_schema_view(
-    list=extend_schema(tags=["Academics"]),
-    retrieve=extend_schema(tags=["Academics"]),
-    create=extend_schema(tags=["Academics"]),
-    update=extend_schema(tags=["Academics"]),
-    partial_update=extend_schema(tags=["Academics"]),
-    destroy=extend_schema(tags=["Academics"]),
-)
 class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Teacher.objects.select_related("user", "college", "department").prefetch_related("subjects_handled").order_by("last_name", "first_name")
     serializer_class = TeacherSerializer
@@ -126,40 +106,6 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
     ordering_fields = ["last_name", "first_name", "date_of_joining"]
-
-
-@extend_schema_view(
-    list=extend_schema(tags=["Academics"]),
-    retrieve=extend_schema(tags=["Academics"]),
-    create=extend_schema(tags=["Academics"]),
-    update=extend_schema(tags=["Academics"]),
-    partial_update=extend_schema(tags=["Academics"]),
-    destroy=extend_schema(tags=["Academics"]),
-)
-class TopicViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Topic.objects.select_related("subject", "subject__college").order_by("subject", "name")
-    serializer_class = TopicSerializer
-    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["subject", "is_active"]
-    search_fields = ["name", "context", "objectives"]
-    ordering_fields = ["name", "created_at"]
-    tenant_relations = ["subject__college_id"]  # Add tenant relation for college scoping
-    
-    def get_queryset(self):
-        qs = super().get_queryset()
-        
-        # Filter by subject if subject_id is provided in query params
-        subject_id = self.request.query_params.get('subject_id')
-        if subject_id:
-            qs = qs.filter(subject_id=subject_id)
-        
-        return qs
-    
-    def perform_create(self, serializer):
-        # The serializer will handle subject_id validation and subject assignment
-        # No need for additional logic here as it's handled in the serializer
-        serializer.save()
 
 
 

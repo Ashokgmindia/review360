@@ -4,9 +4,7 @@ from .views import (
     ClassViewSet,
     StudentViewSet,
     DepartmentViewSet,
-    SubjectViewSet,
     TeacherViewSet,
-    TopicViewSet,
 )
 from .bulk_upload_views import bulk_upload_teacher_users, bulk_upload_student_users
 
@@ -15,9 +13,7 @@ router = DefaultRouter()
 router.register(r"classes", ClassViewSet, basename="class")
 router.register(r"students", StudentViewSet, basename="student")
 router.register(r"departments", DepartmentViewSet, basename="department")
-router.register(r"subjects", SubjectViewSet, basename="subject")
 router.register(r"teachers", TeacherViewSet, basename="teacher")
-router.register(r"topics", TopicViewSet, basename="topic")
 
 
 urlpatterns = [

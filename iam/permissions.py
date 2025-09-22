@@ -38,6 +38,8 @@ class RoleBasedPermission(BasePermission):
             'learning': {
                 'activitysheet': ['create', 'read', 'update', 'delete'],
                 'validation': ['create', 'read', 'update', 'delete'],
+                'subject': ['create', 'read', 'update', 'delete'],
+                'topic': ['create', 'read', 'update', 'delete'],
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],
@@ -60,6 +62,8 @@ class RoleBasedPermission(BasePermission):
             'learning': {
                 'activitysheet': ['read'],
                 'validation': ['read'],
+                'subject': ['create', 'read', 'update', 'delete'],
+                'topic': ['create', 'read', 'update', 'delete'],
             },
             'followup': {
                 'followupsession': ['read', 'update', 'delete'],
@@ -82,6 +86,8 @@ class RoleBasedPermission(BasePermission):
             'learning': {
                 'activitysheet': ['create', 'read', 'update'],
                 'validation': ['create', 'read', 'update'],
+                'subject': ['read', 'update'],  # Own subjects
+                'topic': ['create', 'read', 'update', 'delete'],  # Topics for their subjects
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],
@@ -104,6 +110,8 @@ class RoleBasedPermission(BasePermission):
             'learning': {
                 'activitysheet': ['create', 'read', 'update'],
                 'validation': ['read'],
+                'subject': ['read'],
+                'topic': ['read'],
             },
             'followup': {
                 'followupsession': ['read'],
@@ -157,9 +165,9 @@ class RoleBasedPermission(BasePermission):
             if class_name.endswith('ViewSet'):
                 model_name = class_name[:-7].lower()  # Remove 'ViewSet' suffix
                 # Map common viewset names to app names
-                if model_name in ['topic', 'subject', 'department', 'class', 'student', 'teacher']:
+                if model_name in ['department', 'class', 'student', 'teacher']:
                     return 'academics'
-                elif model_name in ['activitysheet', 'validation']:
+                elif model_name in ['topic', 'subject', 'activitysheet', 'validation']:
                     return 'learning'
                 elif model_name in ['followupsession']:
                     return 'followup'
