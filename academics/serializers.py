@@ -172,10 +172,30 @@ class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
         fields = [
-            "id", "name", "description", "subject_id", "subject_name", "order", 
-            "is_active", "created_at", "updated_at"
+            "id", "name", "context", "objectives", "status", "grade", 
+            "comments_and_recommendations", 
+            "qns1_text", "qns1_checked", "qns2_text", "qns2_checked", 
+            "qns3_text", "qns3_checked", "qns4_text", "qns4_checked",
+            "subject_id", "subject_name", "is_active", "created_at", "updated_at"
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+    
+    def validate(self, attrs):
+        """Validate that at least 2 questions are selected for PUT requests only."""
+        # Get the request method from context
+        request = self.context.get('request')
+        if request and request.method == 'PUT':
+            selected_questions = sum([
+                attrs.get('qns1_checked', False),
+                attrs.get('qns2_checked', False),
+                attrs.get('qns3_checked', False),
+                attrs.get('qns4_checked', False)
+            ])
+            
+            if selected_questions < 2:
+                raise serializers.ValidationError("At least 2 questions must be selected.")
+        
+        return attrs
     
     def create(self, validated_data):
         # Extract subject_id and remove it from validated_data

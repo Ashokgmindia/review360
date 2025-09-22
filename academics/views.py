@@ -137,13 +137,13 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     destroy=extend_schema(tags=["Academics"]),
 )
 class TopicViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Topic.objects.select_related("subject", "subject__college").order_by("subject", "order", "name")
+    queryset = Topic.objects.select_related("subject", "subject__college").order_by("subject", "name")
     serializer_class = TopicSerializer
     permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["subject", "is_active"]
-    search_fields = ["name", "description"]
-    ordering_fields = ["name", "order", "created_at"]
+    search_fields = ["name", "context", "objectives"]
+    ordering_fields = ["name", "created_at"]
     tenant_relations = ["subject__college_id"]  # Add tenant relation for college scoping
     
     def get_queryset(self):

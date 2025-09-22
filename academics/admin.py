@@ -267,18 +267,40 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ("name", "subject", "order", "is_active", "created_at")
-    list_filter = ("is_active", "subject", "created_at")
-    search_fields = ("name", "description", "subject__name")
-    list_editable = ("order", "is_active")
-    ordering = ("subject", "order", "name")
+    list_display = ("name", "subject", "status", "grade", "qns1_checked", "qns2_checked", "qns3_checked", "qns4_checked", "is_active", "created_at")
+    list_filter = ("is_active", "status", "subject", "qns1_checked", "qns2_checked", "qns3_checked", "qns4_checked", "created_at")
+    search_fields = ("name", "context", "objectives", "subject__name", "qns1_text", "qns2_text", "qns3_text", "qns4_text")
+    list_editable = ("is_active",)
+    ordering = ("subject", "name")
     
     fieldsets = (
         ("Basic Information", {
-            "fields": ("name", "description", "subject")
+            "fields": ("name", "subject")
+        }),
+        ("Content", {
+            "fields": ("context", "objectives")
+        }),
+        ("Progress & Evaluation", {
+            "fields": ("status", "grade", "comments_and_recommendations")
+        }),
+        ("Question 1", {
+            "fields": ("qns1_text", "qns1_checked"),
+            "classes": ("collapse",)
+        }),
+        ("Question 2", {
+            "fields": ("qns2_text", "qns2_checked"),
+            "classes": ("collapse",)
+        }),
+        ("Question 3", {
+            "fields": ("qns3_text", "qns3_checked"),
+            "classes": ("collapse",)
+        }),
+        ("Question 4", {
+            "fields": ("qns4_text", "qns4_checked"),
+            "classes": ("collapse",)
         }),
         ("Organization", {
-            "fields": ("order", "is_active")
+            "fields": ("is_active",)
         }),
         ("Timestamps", {
             "fields": ("created_at", "updated_at"),
@@ -287,5 +309,10 @@ class TopicAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ("created_at", "updated_at")
+    
+    def clean(self):
+        """Admin-level validation (no request context available here)."""
+        # Validation is handled at serializer level where request context is available
+        pass
 
 
