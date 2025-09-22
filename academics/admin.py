@@ -1,8 +1,36 @@
 from django.contrib import admin
 from django.db import models
+from django import forms
+from django.core.exceptions import ValidationError
 from iam.models import User
 
 from .models import Department, Teacher, Class, Student
+
+
+class ClassAdminForm(forms.ModelForm):
+    """Custom form for Class admin with student file upload."""
+    student_file = forms.FileField(
+        required=False,
+        help_text="Upload Excel, CSV, or JSON file containing student data. Students will be automatically assigned to this class.",
+        widget=forms.FileInput(attrs={'accept': '.xlsx,.csv,.json'})
+    )
+    
+    class Meta:
+        model = Class
+        fields = '__all__'
+        widgets = {
+            'student_file': forms.FileInput(attrs={'accept': '.xlsx,.csv,.json'})
+        }
+    
+    def clean_student_file(self):
+        file = self.cleaned_data.get('student_file')
+        if file:
+            # Validate file extension
+            allowed_extensions = ['.xlsx', '.csv', '.json']
+            file_extension = file.name.lower().split('.')[-1]
+            if f'.{file_extension}' not in allowed_extensions:
+                raise ValidationError(f"File type not supported. Please upload Excel (.xlsx), CSV (.csv), or JSON (.json) files.")
+        return file
 
 
 @admin.register(Department)
@@ -125,8 +153,10 @@ class TeacherAdmin(admin.ModelAdmin):
 
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
+    form = ClassAdminForm
     list_display = ("name", "section", "program", "semester", "academic_year", "room_number", "max_students", "college", "teacher")
     search_fields = ("name", "academic_year", "section", "program", "room_number")
+    fields = ("name", "academic_year", "is_active", "college", "teacher", "section", "program", "semester", "room_number", "max_students", "student_file", "metadata")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -178,7 +208,61 @@ class ClassAdmin(admin.ModelAdmin):
         if not change and getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
             if request.user.college_id and not obj.college_id:
                 obj.college = request.user.college
+        
+        # Save the class first
         super().save_model(request, obj, form, change)
+        
+        # Handle student file upload if provided
+        student_file = form.cleaned_data.get('student_file')
+        if student_file and not change:  # Only process file upload when creating new class
+            try:
+                from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
+                
+                # Process student bulk upload
+                result = process_student_bulk_upload(student_file, obj.college, request.user)
+                
+                # Debug: Print result to see what's happening
+                print(f"Admin bulk upload result: {result}")
+                
+                # Store upload results in class metadata for reference
+                obj.metadata = {
+                    'student_upload_result': {
+                        'success_count': result['success_count'],
+                        'error_count': result['error_count'],
+                        'errors': result['errors']
+                    }
+                }
+                obj.save()
+                
+                # Assign successfully created students to this class
+                if result['success_count'] > 0:
+                    # Get the students created in this batch (most recent ones without class assignment)
+                    students_to_assign = Student.objects.filter(
+                        college=obj.college,
+                        class_ref__isnull=True
+                    ).order_by('-created_at')[:result['success_count']]
+                    
+                    # Assign students to this class
+                    for student in students_to_assign:
+                        student.class_ref = obj
+                        student.save()
+                    
+                    # Update metadata with assignment info
+                    obj.metadata['student_upload_result']['assigned_to_class'] = students_to_assign.count()
+                    obj.save()
+                
+            except BulkUploadError as e:
+                # If student upload fails, still create the class but add error to metadata
+                obj.metadata = {
+                    'student_upload_error': str(e)
+                }
+                obj.save()
+            except Exception as e:
+                # If any other error occurs, still create the class
+                obj.metadata = {
+                    'student_upload_error': f"Unexpected error: {str(e)}"
+                }
+                obj.save()
 
 
 @admin.register(Student)

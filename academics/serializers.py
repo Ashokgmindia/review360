@@ -6,6 +6,15 @@ from .models import Class, Student, Department, Teacher
 
 
 class ClassSerializer(serializers.ModelSerializer):
+    # Add file upload field for student import
+    student_file = serializers.FileField(
+        write_only=True, 
+        required=False, 
+        help_text="Excel, CSV, or JSON file containing student data",
+        allow_empty_file=False,
+        use_url=False
+    )
+    
     class Meta:
         model = Class
         fields = [
@@ -20,6 +29,8 @@ class ClassSerializer(serializers.ModelSerializer):
             "semester",
             "room_number",
             "max_students",
+            "student_file",  # File upload field
+            "metadata",
             "created_at",
             "updated_at",
         ]
@@ -28,6 +39,9 @@ class ClassSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
         user = getattr(request, "user", None)
+        
+        # Extract student file before creating class
+        student_file = validated_data.pop('student_file', None)
         
         # Determine college from creator; superadmin must specify via user's single allowed or error
         allowed = []
@@ -49,7 +63,62 @@ class ClassSerializer(serializers.ModelSerializer):
         
         # Set the college field
         validated_data['college'] = college
-        return Class.objects.create(**validated_data)
+        
+        # Create the class
+        class_instance = Class.objects.create(**validated_data)
+        
+        # Handle student file upload if provided
+        if student_file:
+            try:
+                from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
+                
+                # Process student bulk upload
+                result = process_student_bulk_upload(student_file, college, user)
+                
+                # Debug: Print result to see what's happening
+                print(f"Bulk upload result: {result}")
+                
+                # Store upload results in class metadata for reference
+                class_instance.metadata = {
+                    'student_upload_result': {
+                        'success_count': result['success_count'],
+                        'error_count': result['error_count'],
+                        'errors': result['errors']
+                    }
+                }
+                class_instance.save()
+                
+                # Assign successfully created students to this class
+                if result['success_count'] > 0:
+                    # Get the students created in this batch (most recent ones without class assignment)
+                    students_to_assign = Student.objects.filter(
+                        college=college,
+                        class_ref__isnull=True
+                    ).order_by('-created_at')[:result['success_count']]
+                    
+                    # Assign students to this class
+                    for student in students_to_assign:
+                        student.class_ref = class_instance
+                        student.save()
+                    
+                    # Update metadata with assignment info
+                    class_instance.metadata['student_upload_result']['assigned_to_class'] = students_to_assign.count()
+                    class_instance.save()
+                
+            except BulkUploadError as e:
+                # If student upload fails, still create the class but add error to metadata
+                class_instance.metadata = {
+                    'student_upload_error': str(e)
+                }
+                class_instance.save()
+            except Exception as e:
+                # If any other error occurs, still create the class
+                class_instance.metadata = {
+                    'student_upload_error': f"Unexpected error: {str(e)}"
+                }
+                class_instance.save()
+        
+        return class_instance
 
 
 class StudentSerializer(serializers.ModelSerializer):

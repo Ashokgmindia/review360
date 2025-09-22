@@ -175,11 +175,11 @@ class TeacherBulkUploadProcessor(BulkUploadProcessor):
 class StudentBulkUploadProcessor(BulkUploadProcessor):
     """Processor for bulk student uploads."""
     
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'student_number', 'academic_year']
+    REQUIRED_FIELDS = ['first_name', 'last_name']
     OPTIONAL_FIELDS = [
         'email', 'phone_number', 'birth_date', 'blood_group', 'address',
-        'class_name', 'department_code', 'admission_date', 'graduation_date',
-        'status', 'guardian_name', 'guardian_contact'
+        'department_code', 'admission_date', 'graduation_date',
+        'status', 'guardian_name', 'guardian_contact', 'student_number', 'academic_year'
     ]
     
     def __init__(self, file, college, uploaded_by, teacher=None):
@@ -193,18 +193,24 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
         if missing_fields:
             raise BulkUploadError(f"Missing required fields: {', '.join(missing_fields)}")
         
-        # Check for duplicate student numbers
-        if self.data['student_number'].duplicated().any():
-            duplicate_numbers = self.data[self.data['student_number'].duplicated()]['student_number'].tolist()
-            raise BulkUploadError(f"Duplicate student numbers found: {', '.join(duplicate_numbers)}")
-        
-        # Check for existing student numbers in database
-        existing_numbers = Student.objects.filter(
-            student_number__in=self.data['student_number'].tolist(),
-            college=self.college
-        ).values_list('student_number', flat=True)
-        if existing_numbers:
-            raise BulkUploadError(f"Student numbers already exist in database: {', '.join(existing_numbers)}")
+        # Check for duplicate student numbers (only if student_number column exists and has values)
+        if 'student_number' in self.data.columns:
+            # Filter out null/empty values for duplicate check
+            student_numbers = self.data['student_number'].dropna()
+            student_numbers = student_numbers[student_numbers != '']
+            
+            if not student_numbers.empty and student_numbers.duplicated().any():
+                duplicate_numbers = student_numbers[student_numbers.duplicated()].tolist()
+                raise BulkUploadError(f"Duplicate student numbers found: {', '.join(duplicate_numbers)}")
+            
+            # Check for existing student numbers in database (only if we have valid numbers)
+            if not student_numbers.empty:
+                existing_numbers = Student.objects.filter(
+                    student_number__in=student_numbers.tolist(),
+                    college=self.college
+                ).values_list('student_number', flat=True)
+                if existing_numbers:
+                    raise BulkUploadError(f"Student numbers already exist in database: {', '.join(existing_numbers)}")
         
         return True
     
@@ -215,18 +221,8 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
         for index, row in self.data.iterrows():
             try:
                 with transaction.atomic():
-                    # Get class if specified
+                    # Class assignment removed - students will not be automatically assigned to classes
                     class_ref = None
-                    if 'class_name' in row and pd.notna(row['class_name']):
-                        try:
-                            class_ref = Class.objects.get(
-                                name=row['class_name'],
-                                college=self.college,
-                                academic_year=row['academic_year']
-                            )
-                        except Class.DoesNotExist:
-                            self.errors.append(f"Row {index + 1}: Class '{row['class_name']}' not found for academic year {row['academic_year']}")
-                            continue
                     
                     # Get department if specified
                     department = None
@@ -240,9 +236,29 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                             self.errors.append(f"Row {index + 1}: Department with code '{row['department_code']}' not found")
                             continue
                     
-                    # Create user account for student
-                    email = row.get('email', f"{row['student_number']}@student.local")
-                    username = email
+                    # Create user account for student - ensure email is used as username
+                    email = row.get('email')
+                    if not email or pd.isna(email) or not str(email).strip():
+                        # Use student_number if available, otherwise use a generated email
+                        student_number = row.get('student_number', '')
+                        if student_number and not pd.isna(student_number) and str(student_number).strip():
+                            email = f"{str(student_number).strip()}@student.local"
+                        else:
+                            email = f"student_{index + 1}@student.local"
+                    else:
+                        # Validate that the email looks like an actual email, not a birth date
+                        email_str = str(email).strip()
+                        if '@' not in email_str or email_str.count('-') > 2:  # Birth dates have many dashes
+                            # This looks like a birth date, generate proper email
+                            student_number = row.get('student_number', '')
+                            if student_number and not pd.isna(student_number) and str(student_number).strip():
+                                email = f"{str(student_number).strip()}@student.local"
+                            else:
+                                email = f"student_{index + 1}@student.local"
+                        else:
+                            email = email_str
+                    
+                    username = str(email).strip()  # Ensure it's a string and trim whitespace
                     
                     # Check if user already exists
                     if User.objects.filter(email=email).exists():
@@ -255,42 +271,81 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                         password='temp_password_123',  # Temporary password
                         role=User.Role.STUDENT,
                         college=self.college,
-                        first_name=row['first_name'],
-                        last_name=row['last_name'],
-                        phone_number=row.get('phone_number', '')[:20],  # Truncate to 20 chars
+                        first_name=str(row['first_name']).strip(),
+                        last_name=str(row['last_name']).strip(),
+                        phone_number=str(row.get('phone_number', '')).strip()[:20],  # Truncate to 20 chars
                     )
                     
                     # Add user to college's member users
                     user.colleges.add(self.college)
                     
-                    # Create student record
+                    # Create student record with proper field mapping
                     student_data = {
-                        'first_name': row['first_name'],
-                        'last_name': row['last_name'],
-                        'student_number': row['student_number'],
-                        'academic_year': row['academic_year'],
+                        'user': user,  # Link to the created user
+                        'first_name': str(row['first_name']).strip(),
+                        'last_name': str(row['last_name']).strip(),
+                        'email': email,
                         'college': self.college,
                         'class_ref': class_ref,
                         'department': department,
                     }
                     
-                    # Add optional fields with length validation
-                    for field in self.OPTIONAL_FIELDS:
-                        if field in row and pd.notna(row[field]):
-                            if field in ['class_name', 'department_code']:
-                                continue  # Already handled above
+                    # Add optional fields only if they exist and are not null
+                    if 'student_number' in row and pd.notna(row['student_number']) and str(row['student_number']).strip():
+                        student_data['student_number'] = str(row['student_number']).strip()
+                    
+                    if 'academic_year' in row and pd.notna(row['academic_year']) and str(row['academic_year']).strip():
+                        student_data['academic_year'] = str(row['academic_year']).strip()
+                    
+                    # Add optional fields with proper validation and date parsing
+                    optional_field_mapping = {
+                        'phone_number': 'phone_number',
+                        'birth_date': 'birth_date', 
+                        'blood_group': 'blood_group',
+                        'address': 'address',
+                        'admission_date': 'admission_date',
+                        'graduation_date': 'graduation_date',
+                        'status': 'status',
+                        'guardian_name': 'guardian_name',
+                        'guardian_contact': 'guardian_contact'
+                    }
+                    
+                    for csv_field, model_field in optional_field_mapping.items():
+                        if csv_field in row and pd.notna(row[csv_field]):
+                            value = row[csv_field]
                             
-                            value = row[field]
-                            
-                            # Apply length limits for specific fields
-                            if field == 'phone_number' and len(str(value)) > 20:
-                                value = str(value)[:20]
-                            elif field == 'blood_group' and len(str(value)) > 5:
-                                value = str(value)[:5]
-                            elif field == 'guardian_contact' and len(str(value)) > 20:
-                                value = str(value)[:20]
-                            
-                            student_data[field] = value
+                            # Handle date fields specially
+                            if model_field in ['birth_date', 'admission_date', 'graduation_date']:
+                                try:
+                                    # Convert to string first, then parse as date
+                                    date_str = str(value).strip()
+                                    if date_str:
+                                        # Try to parse the date - handle different formats
+                                        if '-' in date_str:
+                                            # Assume YYYY-MM-DD format
+                                            from datetime import datetime
+                                            parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                                            student_data[model_field] = parsed_date
+                                        else:
+                                            # Try pandas to_datetime for other formats
+                                            parsed_date = pd.to_datetime(value).date()
+                                            student_data[model_field] = parsed_date
+                                except (ValueError, TypeError) as e:
+                                    self.errors.append(f"Row {index + 1}: Invalid date format for {csv_field}: {value}")
+                                    continue
+                            else:
+                                # Handle non-date fields
+                                value = str(value).strip()
+                                
+                                # Apply length limits for specific fields
+                                if model_field == 'phone_number' and len(value) > 20:
+                                    value = value[:20]
+                                elif model_field == 'blood_group' and len(value) > 5:
+                                    value = value[:5]
+                                elif model_field == 'guardian_contact' and len(value) > 20:
+                                    value = value[:20]
+                                
+                                student_data[model_field] = value
                     
                     Student.objects.create(**student_data)
                     self.success_count += 1

@@ -11,7 +11,7 @@ from drf_spectacular.openapi import AutoSchema
 from django.db import transaction
 from rest_framework import serializers
 
-from .bulk_upload_utils import process_teacher_bulk_upload, process_student_user_bulk_upload, BulkUploadError
+from .bulk_upload_utils import process_teacher_bulk_upload, process_student_bulk_upload, BulkUploadError
 from .models import Teacher, Student
 from rest_framework.permissions import IsAuthenticated
 
@@ -109,8 +109,8 @@ def bulk_upload_teacher_users(request):
 
 @extend_schema(
     tags=["Academics"],
-    summary="Bulk upload student users",
-    description="Upload student users in bulk via Excel, CSV, or JSON file. Requires 'academics.add_student' permission. Creates User accounts with Student role only.",
+    summary="Bulk upload students",
+    description="Upload students in bulk via Excel, CSV, or JSON file. Requires 'academics.add_student' permission. Creates both User accounts with Student role and Student profile records. Students are not automatically assigned to classes during upload.",
     request={
         'multipart/form-data': {
             'type': 'object',
@@ -133,8 +133,8 @@ def bulk_upload_teacher_users(request):
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def bulk_upload_student_users(request):
-    """Bulk upload student users from file."""
+def bulk_upload_students(request):
+    """Bulk upload students from file."""
     user = request.user
     
     # Check if user has permission to add students using role-based permissions
@@ -170,10 +170,10 @@ def bulk_upload_student_users(request):
         )
     
     try:
-        result = process_student_user_bulk_upload(file, college, user)
+        result = process_student_bulk_upload(file, college, user)
         
         return Response({
-            "message": f"Bulk upload completed. {result['success_count']} student users created successfully.",
+            "message": f"Bulk upload completed. {result['success_count']} students created successfully.",
             "success_count": result['success_count'],
             "error_count": result['error_count'],
             "errors": result['errors']

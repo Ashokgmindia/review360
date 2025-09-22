@@ -6,7 +6,7 @@ from .views import (
     DepartmentViewSet,
     TeacherViewSet,
 )
-from .bulk_upload_views import bulk_upload_teacher_users, bulk_upload_student_users
+from .bulk_upload_views import bulk_upload_teacher_users
 
 
 router = DefaultRouter()
@@ -18,9 +18,8 @@ router.register(r"teachers", TeacherViewSet, basename="teacher")
 
 urlpatterns = [
     path("", include(router.urls)),
-    # Bulk upload endpoints for User accounts
-    path("bulk-upload/teacher-users/", bulk_upload_teacher_users, name="bulk-upload-teacher-users"),
-    path("bulk-upload/student-users/", bulk_upload_student_users, name="bulk-upload-student-users"),
+    # Bulk upload endpoints
+    path("bulk-upload/teachers/", bulk_upload_teacher_users, name="bulk-upload-teachers"),
 ]
 
 

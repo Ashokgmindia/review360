@@ -1,8 +1,9 @@
-from rest_framework import viewsets, permissions, filters
+from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
+from rest_framework import serializers
 
 from .models import Class, Student, Department, Teacher
 from .serializers import (
@@ -11,6 +12,7 @@ from .serializers import (
     DepartmentSerializer,
     TeacherSerializer,
 )
+from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
 
@@ -18,7 +20,32 @@ from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantSco
 @extend_schema_view(
     list=extend_schema(tags=["Academics"]),
     retrieve=extend_schema(tags=["Academics"]),
-    create=extend_schema(tags=["Academics"]),
+    create=extend_schema(
+        tags=["Academics"],
+        summary="Create a new class",
+        description="Create a new class with optional student file upload. Students can be imported via Excel, CSV, or JSON file.",
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string', 'description': 'Class name'},
+                    'academic_year': {'type': 'string', 'description': 'Academic year'},
+                    'teacher': {'type': 'integer', 'description': 'Teacher ID'},
+                    'section': {'type': 'string', 'description': 'Class section'},
+                    'program': {'type': 'string', 'description': 'Program name'},
+                    'semester': {'type': 'integer', 'description': 'Semester number'},
+                    'room_number': {'type': 'string', 'description': 'Room number'},
+                    'max_students': {'type': 'integer', 'description': 'Maximum number of students'},
+                    'student_file': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Excel (.xlsx), CSV (.csv), or JSON (.json) file containing student data'
+                    }
+                },
+                'required': ['name', 'academic_year']
+            }
+        }
+    ),
     update=extend_schema(tags=["Academics"]),
     partial_update=extend_schema(tags=["Academics"]),
     destroy=extend_schema(tags=["Academics"]),
@@ -42,6 +69,7 @@ class ClassViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         if getattr(user, "role", None) == "teacher":
             qs = qs.filter(teacher_id=user.id)
         return qs
+
 
 
 @extend_schema_view(

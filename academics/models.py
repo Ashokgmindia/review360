@@ -13,7 +13,8 @@ class Class(models.Model):
     program = models.CharField(max_length=100, blank=True, default="")
     semester = models.IntegerField(null=True, blank=True)
     room_number = models.CharField(max_length=20, blank=True, default="")
-    max_students = models.PositiveIntegerField(default=0)
+    max_students = models.PositiveIntegerField(default=0, null=True, blank=True)
+    metadata = models.JSONField(blank=True, null=True, default=dict)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -31,7 +32,8 @@ class Class(models.Model):
 
 
 class Student(models.Model):
-    # Basic Information
+    # User Account & Basic Information
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="student_profile", null=True, blank=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(blank=True, null=True)
@@ -42,11 +44,11 @@ class Student(models.Model):
     profile_photo = models.ImageField(upload_to="student_photos/", null=True, blank=True)
     
     # Academic Information
-    class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name="students")
-    academic_year = models.CharField(max_length=9)
-    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="students")
+    class_ref = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
+    academic_year = models.CharField(max_length=9, blank=True, null=True)
+    college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="students", null=True, blank=True)
     department = models.ForeignKey("academics.Department", on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
-    student_number = models.CharField(max_length=30)
+    student_number = models.CharField(max_length=30, blank=True, null=True)
     admission_date = models.DateField(null=True, blank=True)
     graduation_date = models.DateField(null=True, blank=True)
     status = models.CharField(
@@ -73,7 +75,8 @@ class Student(models.Model):
         return f"{self.first_name} {self.last_name}"
 
     class Meta:
-        unique_together = ("college", "student_number")
+        # Remove unique_together constraint since college and student_number are now optional
+        # unique_together = ("college", "student_number")
         indexes = [
             models.Index(fields=['college', 'is_active']),
             models.Index(fields=['class_ref', 'academic_year']),
