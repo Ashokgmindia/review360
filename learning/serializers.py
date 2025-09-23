@@ -63,10 +63,16 @@ class TopicSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
     
     def validate(self, attrs):
-        """Validate that at least 2 questions are selected for PUT requests only."""
-        # Get the request method from context
+        """Role-based validation for topic fields."""
         request = self.context.get('request')
-        if request and request.method == 'PUT':
+        if not request or not hasattr(request, 'user'):
+            return attrs
+            
+        user = request.user
+        is_teacher = user.role == 'teacher'
+        
+        # For teachers: validate that at least 2 questions are checked
+        if is_teacher:
             selected_questions = sum([
                 attrs.get('qns1_checked', False),
                 attrs.get('qns2_checked', False),
@@ -75,9 +81,46 @@ class TopicSerializer(serializers.ModelSerializer):
             ])
             
             if selected_questions < 2:
-                raise serializers.ValidationError("At least 2 questions must be selected.")
+                raise serializers.ValidationError("At least 2 checkbox questions must be selected.")
         
         return attrs
+    
+    def to_representation(self, instance):
+        """Filter fields based on user role when serializing."""
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        if request and hasattr(request, 'user'):
+            user = request.user
+            is_teacher = user.role == 'teacher'
+            
+            # For teachers, remove fields they shouldn't see
+            if is_teacher:
+                restricted_fields = ['name', 'context', 'objectives']
+                for field in restricted_fields:
+                    if field in data:
+                        del data[field]
+        
+        return data
+    
+    def to_internal_value(self, data):
+        """Filter fields based on user role when deserializing."""
+        request = self.context.get('request')
+        
+        if request and hasattr(request, 'user'):
+            user = request.user
+            is_teacher = user.role == 'teacher'
+            
+            # For teachers, remove fields they shouldn't be able to update
+            if is_teacher:
+                restricted_fields = ['name', 'context', 'objectives']
+                for field in restricted_fields:
+                    if field in data:
+                        raise serializers.ValidationError({
+                            field: f"Teachers do not have permission to update the '{field}' field."
+                        })
+        
+        return super().to_internal_value(data)
     
     def create(self, validated_data):
         # Extract subject_id and remove it from validated_data
