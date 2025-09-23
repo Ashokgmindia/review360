@@ -119,6 +119,10 @@ class ClassSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
+    # Custom fields to display subjects and topics based on class
+    subjects = serializers.SerializerMethodField()
+    topics = serializers.SerializerMethodField()
+    
     class Meta:
         model = Student
         fields = [
@@ -143,10 +147,70 @@ class StudentSerializer(serializers.ModelSerializer):
             "guardian_contact",
             "is_active",
             "metadata",
+            "subjects",
+            "topics",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_subjects(self, obj):
+        """Get all subjects assigned to the student's class."""
+        if not obj.class_ref:
+            return []
+        
+        from learning.models import Subject
+        subjects = Subject.objects.filter(class_ref=obj.class_ref, is_active=True)
+        return [
+            {
+                "id": subject.id,
+                "name": subject.name,
+                "code": subject.code,
+                "description": subject.description,
+                "semester": subject.semester,
+                "credits": subject.credits,
+                "is_elective": subject.is_elective,
+                "department": {
+                    "id": subject.department.id,
+                    "name": subject.department.name,
+                    "code": subject.department.code
+                } if subject.department else None
+            }
+            for subject in subjects
+        ]
+
+    def get_topics(self, obj):
+        """Get all topics from subjects assigned to the student's class."""
+        if not obj.class_ref:
+            return []
+        
+        from learning.models import Subject, Topic
+        subjects = Subject.objects.filter(class_ref=obj.class_ref, is_active=True)
+        topics = Topic.objects.filter(subject__in=subjects, is_active=True)
+        
+        return [
+            {
+                "id": topic.id,
+                "name": topic.name,
+                "context": topic.context,
+                "objectives": topic.objectives,
+                "status": topic.status,
+                "grade": topic.grade,
+                "comments_and_recommendations": topic.comments_and_recommendations,
+                "subject": {
+                    "id": topic.subject.id,
+                    "name": topic.subject.name,
+                    "code": topic.subject.code
+                },
+                "questions": [
+                    {"text": topic.qns1_text, "checked": topic.qns1_checked},
+                    {"text": topic.qns2_text, "checked": topic.qns2_checked},
+                    {"text": topic.qns3_text, "checked": topic.qns3_checked},
+                    {"text": topic.qns4_text, "checked": topic.qns4_checked}
+                ]
+            }
+            for topic in topics
+        ]
 
     def _allowed_college_ids(self, user):
         ids = []

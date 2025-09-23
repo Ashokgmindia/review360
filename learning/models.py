@@ -11,6 +11,7 @@ class Subject(models.Model):
     # Academic Structure
     department = models.ForeignKey("academics.Department", on_delete=models.CASCADE, related_name="subjects")
     college = models.ForeignKey("iam.College", on_delete=models.CASCADE, related_name="subjects")
+    class_ref = models.ForeignKey("academics.Class", on_delete=models.CASCADE, related_name="subjects", null=True, blank=True)
     semester = models.IntegerField(null=True, blank=True)
     credits = models.IntegerField(default=0)
     is_elective = models.BooleanField(default=False)
@@ -31,6 +32,7 @@ class Subject(models.Model):
         indexes = [
             models.Index(fields=['college', 'is_active']),
             models.Index(fields=['department', 'semester']),
+            models.Index(fields=['class_ref', 'is_active']),
             models.Index(fields=['code']),
         ]
 

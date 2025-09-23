@@ -10,7 +10,7 @@ class SubjectSerializer(serializers.ModelSerializer):
         model = Subject
         fields = [
             "id", "name", "code", "description", "department", 
-            "college", "semester", "credits", "is_elective", 
+            "college", "class_ref", "semester", "credits", "is_elective", 
             "is_active", "syllabus_file", "topics", "created_at", "updated_at"
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
