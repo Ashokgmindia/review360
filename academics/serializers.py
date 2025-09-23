@@ -236,6 +236,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     # Create linked user
     password = serializers.CharField(write_only=True, min_length=8)
+    # Custom field to display subject names
+    subjects_handled_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Teacher
@@ -264,6 +266,7 @@ class TeacherSerializer(serializers.ModelSerializer):
             "specialization",
             "experience_years",
             "subjects_handled",
+            "subjects_handled_names",
             "research_publications",
             "certifications",
             "resume",
@@ -275,8 +278,25 @@ class TeacherSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def get_subjects_handled_names(self, obj):
+        """Return list of subject names and codes for the teacher."""
+        subjects = obj.subjects_handled.filter(is_active=True)
+        return [
+            {
+                "id": subject.id,
+                "name": subject.name,
+                "code": subject.code,
+                "semester": subject.semester,
+                "credits": subject.credits
+            }
+            for subject in subjects
+        ]
+
     def create(self, validated_data):
         password = validated_data.pop("password")
+        # Extract subjects_handled before creating teacher
+        subjects_handled = validated_data.pop("subjects_handled", [])
+        
         request = self.context.get("request")
         user = getattr(request, "user", None)
         # Determine college from creator; superadmin must specify via user's single allowed or error
@@ -309,6 +329,27 @@ class TeacherSerializer(serializers.ModelSerializer):
                 first_name=validated_data.get("first_name", ""),
                 last_name=validated_data.get("last_name", ""),
             )
+            # Create teacher without subjects_handled
             teacher = Teacher.objects.create(user=linked_user, college=college, **validated_data)
+            
+            # Set subjects_handled after teacher is created
+            if subjects_handled:
+                teacher.subjects_handled.set(subjects_handled)
+            
             return teacher
+
+    def update(self, instance, validated_data):
+        # Extract subjects_handled before updating teacher
+        subjects_handled = validated_data.pop("subjects_handled", None)
+        
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update subjects_handled if provided
+        if subjects_handled is not None:
+            instance.subjects_handled.set(subjects_handled)
+        
+        return instance
 
