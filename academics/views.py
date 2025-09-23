@@ -99,6 +99,36 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             qs = qs.filter(class_ref__teacher_id=user.id)
         return qs
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy method to properly delete the associated User account
+        when deleting a Student (if user exists).
+        """
+        instance = self.get_object()
+        user = instance.user
+        
+        # Store user ID before deletion for potential cleanup
+        user_id = user.id if user else None
+        
+        # Delete the student instance (this should cascade delete the user due to CASCADE)
+        self.perform_destroy(instance)
+        
+        # Double-check: if user still exists, delete it explicitly
+        # This handles cases where CASCADE might not work as expected
+        if user_id:
+            from iam.models import User
+            try:
+                remaining_user = User.objects.get(id=user_id)
+                remaining_user.delete()
+            except User.DoesNotExist:
+                # User was already deleted by CASCADE, which is good
+                pass
+        
+        return Response({
+            "message": "Student deleted successfully",
+            "status": "success"
+        }, status=status.HTTP_200_OK)
+
 
 
 @extend_schema_view(
@@ -134,6 +164,36 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
     ordering_fields = ["last_name", "first_name", "date_of_joining"]
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy method to properly delete the associated User account
+        when deleting a Teacher.
+        """
+        instance = self.get_object()
+        user = instance.user
+        
+        # Store user ID before deletion for potential cleanup
+        user_id = user.id if user else None
+        
+        # Delete the teacher instance (this should cascade delete the user due to CASCADE)
+        self.perform_destroy(instance)
+        
+        # Double-check: if user still exists, delete it explicitly
+        # This handles cases where CASCADE might not work as expected
+        if user_id:
+            from iam.models import User
+            try:
+                remaining_user = User.objects.get(id=user_id)
+                remaining_user.delete()
+            except User.DoesNotExist:
+                # User was already deleted by CASCADE, which is good
+                pass
+        
+        return Response({
+            "message": "Teacher deleted successfully",
+            "status": "success"
+        }, status=status.HTTP_200_OK)
 
 
 
