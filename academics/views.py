@@ -67,7 +67,8 @@ class ClassViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             return qs.none()
         # Additional narrowing for teachers inside their college
         if getattr(user, "role", None) == "teacher":
-            qs = qs.filter(teacher_id=user.id)
+            # Class.teacher points to academics.Teacher, which links to iam.User via Teacher.user
+            qs = qs.filter(teacher__user_id=user.id)
         return qs
 
 
@@ -96,7 +97,8 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         if not user or not getattr(user, "is_authenticated", False):
             return qs.none()
         if getattr(user, "role", None) == "teacher":
-            qs = qs.filter(class_ref__teacher_id=user.id)
+            # Student.class_ref.teacher points to academics.Teacher; filter via related user
+            qs = qs.filter(class_ref__teacher__user_id=user.id)
         return qs
 
     def destroy(self, request, *args, **kwargs):
@@ -194,6 +196,3 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             "message": "Teacher deleted successfully",
             "status": "success"
         }, status=status.HTTP_200_OK)
-
-
-
