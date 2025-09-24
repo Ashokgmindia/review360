@@ -4,7 +4,7 @@ from .views import FollowUpSessionViewSet
 
 
 router = DefaultRouter()
-router.register(r"sessions", FollowUpSessionViewSet, basename="followupsession")
+router.register(r"sessions", FollowUpSessionViewSet, basename="followup-sessions")
 
 
 urlpatterns = [

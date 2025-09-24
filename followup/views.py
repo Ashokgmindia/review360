@@ -19,6 +19,10 @@ from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantSco
     partial_update=extend_schema(tags=["Followup"]),
     destroy=extend_schema(tags=["Followup"]),
 )
+@extend_schema(
+    tags=["Followup"],
+    operation_id="followup_sessions"
+)
 class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = FollowUpSession.objects.select_related("college", "student", "subject", "topic", "teacher").order_by("-session_datetime")
     serializer_class = FollowUpSessionSerializer
@@ -56,6 +60,7 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='student/(?P<student_id>[^/.]+)/topics')
     @extend_schema(
         tags=["Followup"],
+        operation_id="followup_get_student_topics",
         summary="Get student topics for follow-up sessions",
         description="Get all topics for a specific student that can have follow-up sessions scheduled",
         parameters=[
@@ -115,7 +120,7 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             topic_progress = StudentTopicProgress.objects.filter(
                 student=student,
                 is_active=True
-            ).select_related('topic', 'topic__subject', 'teacher')
+            ).select_related('topic', 'topic__subject', 'subject')
             
             # Get scheduled sessions for this student
             scheduled_sessions = FollowUpSession.objects.filter(
@@ -124,6 +129,19 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             ).select_related('topic')
             
             scheduled_topic_ids = set(session.topic.id for session in scheduled_sessions if session.topic)
+            
+            # Get teacher information for each subject
+            from academics.models import StudentSubject
+            student_subjects = StudentSubject.objects.filter(
+                student=student,
+                is_active=True
+            ).select_related('teacher', 'subject')
+            
+            # Create a mapping of subject_id to teacher
+            subject_teacher_map = {}
+            for student_subject in student_subjects:
+                if student_subject.teacher:
+                    subject_teacher_map[student_subject.subject.id] = student_subject.teacher
             
             topics_data = []
             for progress in topic_progress:
@@ -143,6 +161,10 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                             'status': session.status
                         }
                 
+                # Get teacher name from the mapping
+                teacher = subject_teacher_map.get(progress.subject.id)
+                teacher_name = f"{teacher.first_name} {teacher.last_name}" if teacher else None
+                
                 topics_data.append({
                     'id': progress.topic.id,
                     'name': progress.topic.name,
@@ -151,7 +173,7 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                     'status': progress.status,
                     'grade': progress.grade,
                     'subject_name': progress.topic.subject.name,
-                    'teacher_name': f"{progress.teacher.first_name} {progress.teacher.last_name}" if progress.teacher else None,
+                    'teacher_name': teacher_name,
                     'has_scheduled_session': has_scheduled_session,
                     'next_session': next_session
                 })
@@ -173,95 +195,3 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
     
-    @action(detail=False, methods=['post'], url_path='schedule-from-topic-progress')
-    @extend_schema(
-        tags=["Followup"],
-        summary="Schedule follow-up session from student topic progress",
-        description="Create a new follow-up session based on student topic progress",
-        request={
-            'application/json': {
-                'type': 'object',
-                'required': ['student_topic_progress_id', 'session_datetime'],
-                'properties': {
-                    'student_topic_progress_id': {'type': 'integer', 'description': 'ID of the StudentTopicProgress'},
-                    'session_datetime': {'type': 'string', 'format': 'date-time', 'description': 'Session date and time'},
-                    'location': {'type': 'string', 'description': 'Session location'},
-                    'objective': {'type': 'string', 'description': 'Session objective'},
-                    'notes_for_student': {'type': 'string', 'description': 'Notes for the student'},
-                    'teacher_id': {'type': 'integer', 'description': 'Teacher ID (optional)'}
-                }
-            }
-        },
-        responses={
-            201: FollowUpSessionSerializer,
-            400: {'description': 'Invalid data provided'},
-            404: {'description': 'Student topic progress not found'}
-        }
-    )
-    def schedule_from_topic_progress(self, request):
-        """Schedule a follow-up session from student topic progress."""
-        student_topic_progress_id = request.data.get('student_topic_progress_id')
-        
-        if not student_topic_progress_id:
-            return Response(
-                {"error": "student_topic_progress_id is required"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            from academics.models import StudentTopicProgress
-            
-            student_topic_progress = StudentTopicProgress.objects.get(
-                id=student_topic_progress_id,
-                is_active=True
-            )
-            
-            # Prepare data for follow-up session
-            session_data = {
-                'student': student_topic_progress.student.id,
-                'subject': student_topic_progress.subject.id,
-                'topic': student_topic_progress.topic.id,
-                'session_datetime': request.data.get('session_datetime'),
-                'location': request.data.get('location', ''),
-                'objective': request.data.get('objective', ''),
-                'notes_for_student': request.data.get('notes_for_student', ''),
-                'academic_year': student_topic_progress.student.academic_year or '2024-25',
-                'college': student_topic_progress.student.college.id,
-            }
-            
-            # Add teacher if provided
-            teacher_id = request.data.get('teacher_id')
-            if teacher_id:
-                from academics.models import Teacher
-                try:
-                    teacher = Teacher.objects.get(id=teacher_id, is_active=True)
-                    session_data['teacher'] = teacher.id
-                except Teacher.DoesNotExist:
-                    return Response(
-                        {"error": "Teacher not found"}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            elif student_topic_progress.teacher:
-                session_data['teacher'] = student_topic_progress.teacher.id
-            
-            # Create the follow-up session
-            serializer = self.get_serializer(data=session_data)
-            if serializer.is_valid():
-                session = serializer.save()
-                return Response(
-                    self.get_serializer(session).data, 
-                    status=status.HTTP_201_CREATED
-                )
-            else:
-                return Response(
-                    {"error": "Invalid data provided", "details": serializer.errors}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-        except StudentTopicProgress.DoesNotExist:
-            return Response(
-                {"error": "Student topic progress not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-
