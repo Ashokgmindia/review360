@@ -5,6 +5,7 @@ from .views import (
     StudentViewSet,
     DepartmentViewSet,
     TeacherViewSet,
+    StudentSubjectsUpdateViewSet,
 )
 from .bulk_upload_views import bulk_upload_teacher_users
 
@@ -20,6 +21,12 @@ urlpatterns = [
     path("", include(router.urls)),
     # Bulk upload endpoints
     path("bulk-upload/teachers/", bulk_upload_teacher_users, name="bulk-upload-teachers"),
+    # Student subjects update endpoint
+    path(
+        "students/class/<int:class_id>/student/<int:student_id>/subjects/",
+        StudentSubjectsUpdateViewSet.as_view({'put': 'update', 'patch': 'update'}),
+        name="student-subjects-update"
+    ),
 ]
 
 

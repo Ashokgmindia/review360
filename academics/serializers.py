@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
-from .models import Class, Student, Department, Teacher, StudentSubject
+from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -122,7 +122,7 @@ class ClassSerializer(serializers.ModelSerializer):
         return class_instance
 
     def _assign_teacher_subjects_to_students(self, class_instance, students):
-        """Helper method to assign teacher's subjects to students."""
+        """Helper method to assign teacher's subjects to students and create topic progress."""
         teacher = class_instance.teacher
         if not teacher:
             return
@@ -132,6 +132,8 @@ class ClassSerializer(serializers.ModelSerializer):
         
         # Create StudentSubject assignments for each student and subject
         student_subject_assignments = []
+        student_topic_progress_assignments = []
+        
         for student in students:
             for subject in teacher_subjects:
                 # Check if assignment already exists
@@ -148,10 +150,39 @@ class ClassSerializer(serializers.ModelSerializer):
                             class_ref=class_instance
                         )
                     )
+                    
+                    # Create topic progress for all topics in this subject
+                    from learning.models import Topic
+                    topics = Topic.objects.filter(subject=subject, is_active=True)
+                    for topic in topics:
+                        # Check if topic progress already exists
+                        if not StudentTopicProgress.objects.filter(
+                            student=student,
+                            topic=topic,
+                            class_ref=class_instance
+                        ).exists():
+                            student_topic_progress_assignments.append(
+                                StudentTopicProgress(
+                                    student=student,
+                                    topic=topic,
+                                    subject=subject,
+                                    class_ref=class_instance,
+                                    status='not_started',
+                                    grade=0,
+                                    comments_and_recommendations='',
+                                    qns1_text=topic.qns1_text,
+                                    qns2_text=topic.qns2_text,
+                                    qns3_text=topic.qns3_text,
+                                    qns4_text=topic.qns4_text,
+                                )
+                            )
         
         # Bulk create assignments
         if student_subject_assignments:
             StudentSubject.objects.bulk_create(student_subject_assignments)
+        
+        if student_topic_progress_assignments:
+            StudentTopicProgress.objects.bulk_create(student_topic_progress_assignments)
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -230,45 +261,40 @@ class StudentSerializer(serializers.ModelSerializer):
         ]
 
     def get_topics(self, obj):
-        """Get all topics from subjects assigned to the student."""
+        """Get all topics from subjects assigned to the student with student-specific progress."""
         if not obj.class_ref:
             return []
         
-        # Get student's assigned subjects
-        student_subjects = StudentSubject.objects.filter(
+        # Get student's topic progress records
+        from .models import StudentTopicProgress
+        student_topic_progress = StudentTopicProgress.objects.filter(
             student=obj,
             class_ref=obj.class_ref,
             is_active=True
-        ).values_list('subject_id', flat=True)
-        
-        from learning.models import Topic
-        topics = Topic.objects.filter(
-            subject_id__in=student_subjects, 
-            is_active=True
-        ).select_related('subject')
+        ).select_related('topic', 'topic__subject')
         
         return [
             {
-                "id": topic.id,
-                "name": topic.name,
-                "context": topic.context,
-                "objectives": topic.objectives,
-                "status": topic.status,
-                "grade": topic.grade,
-                "comments_and_recommendations": topic.comments_and_recommendations,
+                "id": progress.topic.id,
+                "name": progress.topic.name,
+                "context": progress.topic.context,
+                "objectives": progress.topic.objectives,
+                "status": progress.status,  # Use student-specific status
+                "grade": progress.grade,  # Use student-specific grade
+                "comments_and_recommendations": progress.comments_and_recommendations,  # Use student-specific comments
                 "subject": {
-                    "id": topic.subject.id,
-                    "name": topic.subject.name,
-                    "code": topic.subject.code
+                    "id": progress.topic.subject.id,
+                    "name": progress.topic.subject.name,
+                    "code": progress.topic.subject.code
                 },
                 "questions": [
-                    {"text": topic.qns1_text, "checked": topic.qns1_checked},
-                    {"text": topic.qns2_text, "checked": topic.qns2_checked},
-                    {"text": topic.qns3_text, "checked": topic.qns3_checked},
-                    {"text": topic.qns4_text, "checked": topic.qns4_checked}
+                    {"text": progress.qns1_text, "checked": progress.qns1_checked},
+                    {"text": progress.qns2_text, "checked": progress.qns2_checked},
+                    {"text": progress.qns3_text, "checked": progress.qns3_checked},
+                    {"text": progress.qns4_text, "checked": progress.qns4_checked}
                 ]
             }
-            for topic in topics
+            for progress in student_topic_progress
         ]
 
     def _allowed_college_ids(self, user):
@@ -510,6 +536,10 @@ class StudentSubjectUpdateSerializer(serializers.Serializer):
 
     def validate_topics(self, value):
         """Validate topics data structure."""
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        user_role = getattr(user, 'role', None) if user else None
+        
         for topic_data in value:
             if not isinstance(topic_data, dict):
                 raise serializers.ValidationError("Each topic must be a dictionary.")
@@ -526,6 +556,29 @@ class StudentSubjectUpdateSerializer(serializers.Serializer):
                     Topic.objects.get(id=topic_id, is_active=True)
                 except Topic.DoesNotExist:
                     raise serializers.ValidationError(f"Topic with ID {topic_id} does not exist or is not active.")
+            
+            # Role-based validation for topic fields
+            if user_role == 'teacher':
+                # Teachers can only update validation fields, not question text
+                restricted_fields = ['qns1_text', 'qns2_text', 'qns3_text', 'qns4_text']
+                for field in restricted_fields:
+                    if field in topic_data:
+                        raise serializers.ValidationError(f"Teachers cannot modify {field}. Only college admins can update question text.")
+                
+                # Validate that at least 2 questions are checked for teachers
+                checked_count = sum([
+                    topic_data.get('qns1_checked', False),
+                    topic_data.get('qns2_checked', False),
+                    topic_data.get('qns3_checked', False),
+                    topic_data.get('qns4_checked', False)
+                ])
+                
+                if checked_count < 2:
+                    raise serializers.ValidationError("At least 2 checkbox questions must be selected.")
+            
+            elif user_role not in ['admin', 'college_admin']:
+                # Only teachers, admins, and college_admins can update topics
+                raise serializers.ValidationError("Insufficient permissions to update topic data.")
         
         return value
 
@@ -548,3 +601,13 @@ class StudentSubjectsUpdateSerializer(serializers.Serializer):
         # This helps with OpenAPI schema generation
         ref_name = "StudentSubjectsUpdate"
 
+
+class StudentSubjectsResponseSerializer(serializers.Serializer):
+    """Serializer for the response of student subjects update API."""
+    subjects = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="List of updated subject assignments"
+    )
+
+    class Meta:
+        ref_name = "StudentSubjectsResponse"

@@ -200,6 +200,76 @@ class StudentSubject(models.Model):
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.student} - {self.subject} ({self.teacher})"
 
+
+class StudentTopicProgress(models.Model):
+    """Model to track individual student progress on specific topics."""
+    STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        ('validated', 'Validated'),
+    ]
+    
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="topic_progress")
+    topic = models.ForeignKey("learning.Topic", on_delete=models.CASCADE, related_name="student_progress")
+    subject = models.ForeignKey("learning.Subject", on_delete=models.CASCADE, related_name="student_topic_progress")
+    class_ref = models.ForeignKey(Class, on_delete=models.CASCADE, related_name="student_topic_progress")
+    
+    # Student-specific progress fields
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='not_started',
+        help_text="Student's current status on this topic"
+    )
+    grade = models.PositiveIntegerField(
+        default=0, 
+        help_text="Student's grade for this topic (0-10 scale)"
+    )
+    comments_and_recommendations = models.TextField(
+        blank=True, 
+        default="", 
+        help_text="Comments and recommendations about the student's progress on this topic"
+    )
+    
+    # Question fields (student-specific)
+    qns1_text = models.TextField(blank=True, default="", help_text="Question 1 text")
+    qns1_checked = models.BooleanField(default=False, help_text="Question 1 checkbox")
+    qns2_text = models.TextField(blank=True, default="", help_text="Question 2 text")
+    qns2_checked = models.BooleanField(default=False, help_text="Question 2 checkbox")
+    qns3_text = models.TextField(blank=True, default="", help_text="Question 3 text")
+    qns3_checked = models.BooleanField(default=False, help_text="Question 3 checkbox")
+    qns4_text = models.TextField(blank=True, default="", help_text="Question 4 text")
+    qns4_checked = models.BooleanField(default=False, help_text="Question 4 checkbox")
+    
+    # System Fields
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("student", "topic", "class_ref")
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['topic', 'is_active']),
+            models.Index(fields=['subject', 'is_active']),
+            models.Index(fields=['class_ref', 'is_active']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.student} - {self.topic.name} ({self.status})"
+    
+    def save(self, *args, **kwargs):
+        """Override save to automatically update status based on grade."""
+        # Update status based on grade
+        if self.grade >= 7:
+            self.status = 'validated'
+        elif self.grade > 0:
+            self.status = 'in_progress'
+        else:
+            self.status = 'not_started'
+        super().save(*args, **kwargs)
+
     
     
     

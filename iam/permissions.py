@@ -117,17 +117,14 @@ class RoleBasedPermission(BasePermission):
     
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
-            print("DEBUG RoleBasedPermission: User not authenticated")
             return False
             
         user_role = getattr(request.user, 'role', None)
         if not user_role:
-            print("DEBUG RoleBasedPermission: No user role")
             return False
             
         # Superadmin has all permissions
         if user_role == 'superadmin':
-            print("DEBUG RoleBasedPermission: Superadmin - ALLOWED")
             return True
             
         # Get the model name and action
@@ -252,12 +249,10 @@ class TenantScopedPermission(BasePermission):
     
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
-            print("DEBUG TenantScopedPermission: User not authenticated")
             return False
             
         # Superadmin can access all tenants
         if getattr(request.user, 'role', None) == 'superadmin':
-            print("DEBUG TenantScopedPermission: Superadmin - ALLOWED")
             return True
             
         # Other users must belong to at least one college

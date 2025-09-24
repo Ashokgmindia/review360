@@ -6,13 +6,14 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import Class, Student, Department, Teacher, StudentSubject
+from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress
 from .serializers import (
     ClassSerializer,
     StudentSerializer,
     DepartmentSerializer,
     TeacherSerializer,
     StudentSubjectsUpdateSerializer,
+    StudentSubjectsResponseSerializer,
 )
 from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
@@ -441,8 +442,75 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             }
         })
 
-    @action(detail=False, methods=['put', 'patch'], url_path='class/(?P<class_id>[^/.]+)/student/(?P<student_id>[^/.]+)/subjects', name='update-student-subjects')
-    @extend_schema(
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Academics"]),
+    retrieve=extend_schema(tags=["Academics"]),
+    create=extend_schema(tags=["Academics"]),
+    update=extend_schema(tags=["Academics"]),
+    partial_update=extend_schema(tags=["Academics"]),
+    destroy=extend_schema(tags=["Academics"]),
+)
+class DepartmentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
+    queryset = Department.objects.select_related("college", "hod").order_by("name")
+    serializer_class = DepartmentSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name", "code"]
+    ordering_fields = ["name", "code"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Academics"]),
+    retrieve=extend_schema(tags=["Academics"]),
+    create=extend_schema(tags=["Academics"]),
+    update=extend_schema(tags=["Academics"]),
+    partial_update=extend_schema(tags=["Academics"]),
+    destroy=extend_schema(tags=["Academics"]),
+)
+class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
+    queryset = Teacher.objects.select_related("user", "college", "department").prefetch_related("subjects_handled").order_by("last_name", "first_name")
+    serializer_class = TeacherSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["department", "is_hod", "is_active"]
+    search_fields = ["first_name", "last_name", "email", "employee_id"]
+    ordering_fields = ["last_name", "first_name", "date_of_joining"]
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy method to properly delete the associated User account
+        when deleting a Teacher.
+        """
+        instance = self.get_object()
+        user = instance.user
+        
+        # Store user ID before deletion for potential cleanup
+        user_id = user.id if user else None
+        
+        # Delete the teacher instance (this should cascade delete the user due to CASCADE)
+        self.perform_destroy(instance)
+        
+        # Double-check: if user still exists, delete it explicitly
+        # This handles cases where CASCADE might not work as expected
+        if user_id:
+            from iam.models import User
+            try:
+                remaining_user = User.objects.get(id=user_id)
+                remaining_user.delete()
+            except User.DoesNotExist:
+                # User was already deleted by CASCADE, which is good
+                pass
+        
+        return Response({
+            "message": "Teacher deleted successfully",
+            "status": "success"
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    update=extend_schema(
         tags=["Academics"],
         summary="Update student subject data for a particular class",
         description="Update subject assignments for a specific student in a particular class",
@@ -522,33 +590,30 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                         'schema': {
                             'type': 'object',
                             'properties': {
-                                'message': {'type': 'string', 'example': 'Student subject assignments and topics updated successfully'},
-                                'updated_assignments': {
+                                'subjects': {
                                     'type': 'array',
                                     'items': {
                                         'type': 'object',
                                         'properties': {
-                                            'id': {'type': 'integer', 'example': 1},
                                             'subject_id': {'type': 'integer', 'example': 1},
                                             'teacher_id': {'type': 'integer', 'example': 2},
                                             'is_active': {'type': 'boolean', 'example': True},
-                                            'created': {'type': 'boolean', 'example': False}
-                                        }
-                                    }
-                                },
-                                'updated_topics': {
-                                    'type': 'array',
-                                    'items': {
-                                        'type': 'object',
-                                        'properties': {
-                                            'id': {'type': 'integer', 'example': 1},
-                                            'status': {'type': 'string', 'example': 'in_progress'},
-                                            'grade': {'type': 'integer', 'example': 5},
-                                            'comments_and_recommendations': {'type': 'string', 'example': 'Good progress'},
-                                            'qns1_checked': {'type': 'boolean', 'example': True},
-                                            'qns2_checked': {'type': 'boolean', 'example': True},
-                                            'qns3_checked': {'type': 'boolean', 'example': False},
-                                            'qns4_checked': {'type': 'boolean', 'example': False}
+                                            'topics': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'properties': {
+                                                        'id': {'type': 'integer', 'example': 1},
+                                                        'status': {'type': 'string', 'example': 'in_progress'},
+                                                        'grade': {'type': 'integer', 'example': 5},
+                                                        'comments_and_recommendations': {'type': 'string', 'example': 'Good progress'},
+                                                        'qns1_checked': {'type': 'boolean', 'example': True},
+                                                        'qns2_checked': {'type': 'boolean', 'example': True},
+                                                        'qns3_checked': {'type': 'boolean', 'example': False},
+                                                        'qns4_checked': {'type': 'boolean', 'example': False}
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -561,26 +626,21 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             400: {'description': 'Invalid data provided'}
         }
     )
-    def get_serializer_class(self):
-        """Override serializer class for the subjects update action."""
-        if self.action == 'update_student_subjects_for_class':
-            return StudentSubjectsUpdateSerializer
-        return super().get_serializer_class()
-
-    def get_serializer(self, *args, **kwargs):
-        """Override serializer for the subjects update action."""
-        if self.action == 'update_student_subjects_for_class':
-            return StudentSubjectsUpdateSerializer(*args, **kwargs)
-        return super().get_serializer(*args, **kwargs)
-
-    def get_serializer_context(self):
-        """Override serializer context for the subjects update action."""
-        context = super().get_serializer_context()
-        if self.action == 'update_student_subjects_for_class':
-            context['action'] = 'update_student_subjects_for_class'
-        return context
-
-    def update_student_subjects_for_class(self, request, class_id=None, student_id=None):
+)
+class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericViewSet):
+    """
+    Dedicated viewset for updating student subjects and topics.
+    This replaces the custom action in StudentViewSet.
+    """
+    queryset = Student.objects.all()  # Provide a proper queryset for permission checking
+    serializer_class = StudentSubjectsUpdateSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission]
+    
+    def get_queryset(self):
+        """Return empty queryset since this viewset doesn't use model-based operations."""
+        return Student.objects.none()
+    
+    def update(self, request, class_id=None, student_id=None):
         """Update subject assignments for a specific student in a particular class."""
         try:
             class_obj = Class.objects.get(id=class_id)
@@ -613,7 +673,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 )
         
         # Validate request data using serializer
-        serializer = StudentSubjectsUpdateSerializer(data=request.data)
+        serializer = StudentSubjectsUpdateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(
                 {"error": "Invalid data provided", "details": serializer.errors}, 
@@ -622,8 +682,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         
         subjects_data = serializer.validated_data.get('subjects', [])
         
-        updated_assignments = []
-        updated_topics = []
+        response_subjects = []
         
         try:
             with transaction.atomic():
@@ -662,13 +721,12 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                         }
                     )
                     
-                    updated_assignments.append({
-                        'id': assignment.id,
-                        'subject_id': assignment.subject.id,
-                        'teacher_id': assignment.teacher.id if assignment.teacher else None,
-                        'is_active': assignment.is_active,
-                        'created': created
-                    })
+                    # If this is a new assignment, create topic progress for all topics in this subject
+                    if created:
+                        self._create_topic_progress_for_student_subject(student, subject, class_obj)
+                    
+                    # Prepare topics for this subject
+                    subject_topics = []
                     
                     # Update topics for this subject
                     for topic_data in topics_data:
@@ -680,27 +738,59 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                             from learning.models import Topic
                             topic = Topic.objects.get(id=topic_id, subject=subject, is_active=True)
                             
-                            # Apply role-based validation and updates
-                            updated_topic = self._update_topic_with_validation(topic, topic_data, user)
-                            if updated_topic:
-                                updated_topics.append({
-                                    'id': updated_topic.id,
-                                    'status': updated_topic.status,
-                                    'grade': updated_topic.grade,
-                                    'comments_and_recommendations': updated_topic.comments_and_recommendations,
-                                    'qns1_checked': updated_topic.qns1_checked,
-                                    'qns2_checked': updated_topic.qns2_checked,
-                                    'qns3_checked': updated_topic.qns3_checked,
-                                    'qns4_checked': updated_topic.qns4_checked
+                            # Ensure topic progress exists for this student
+                            self._ensure_all_students_have_topic_progress(subject, class_obj)
+                            
+                            # Get student-specific topic progress
+                            try:
+                                student_topic_progress = StudentTopicProgress.objects.get(
+                                    student=student,
+                                    topic=topic,
+                                    class_ref=class_obj
+                                )
+                            except StudentTopicProgress.DoesNotExist:
+                                # Create if it doesn't exist (shouldn't happen after _ensure_all_students_have_topic_progress)
+                                student_topic_progress = StudentTopicProgress.objects.create(
+                                    student=student,
+                                    topic=topic,
+                                    subject=subject,
+                                    class_ref=class_obj,
+                                    status='not_started',
+                                    grade=0,
+                                    comments_and_recommendations='',
+                                    qns1_text=topic.qns1_text,
+                                    qns2_text=topic.qns2_text,
+                                    qns3_text=topic.qns3_text,
+                                    qns4_text=topic.qns4_text,
+                                )
+                            
+                            # Apply role-based validation and updates to student-specific progress
+                            updated_progress = self._update_student_topic_progress(student_topic_progress, topic_data, user)
+                            if updated_progress:
+                                subject_topics.append({
+                                    'id': topic.id,  # Return the original topic ID for API consistency
+                                    'status': updated_progress.status,
+                                    'grade': updated_progress.grade,
+                                    'comments_and_recommendations': updated_progress.comments_and_recommendations,
+                                    'qns1_checked': updated_progress.qns1_checked,
+                                    'qns2_checked': updated_progress.qns2_checked,
+                                    'qns3_checked': updated_progress.qns3_checked,
+                                    'qns4_checked': updated_progress.qns4_checked
                                 })
                                 
                         except Topic.DoesNotExist:
                             continue
+                    
+                    # Add subject with its topics to response
+                    response_subjects.append({
+                        'subject_id': assignment.subject.id,
+                        'teacher_id': assignment.teacher.id if assignment.teacher else None,
+                        'is_active': assignment.is_active,
+                        'topics': subject_topics
+                    })
                 
                 return Response({
-                    "message": "Student subject assignments and topics updated successfully",
-                    "updated_assignments": updated_assignments,
-                    "updated_topics": updated_topics
+                    "subjects": response_subjects
                 })
                 
         except Exception as e:
@@ -709,19 +799,18 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    def _update_topic_with_validation(self, topic, topic_data, user):
-        """Update topic with role-based validation."""
-        is_admin = getattr(user, 'role', None) == 'admin'
-        is_teacher = getattr(user, 'role', None) == 'teacher'
+    def _update_student_topic_progress(self, student_topic_progress, topic_data, user):
+        """Update student-specific topic progress with role-based validation."""
+        user_role = getattr(user, 'role', None)
         
-        if is_admin:
-            # Admin can update all fields
+        if user_role in ['admin', 'college_admin']:
+            # Admin and college_admin can update all fields
             update_fields = [
                 'status', 'grade', 'comments_and_recommendations',
                 'qns1_text', 'qns1_checked', 'qns2_text', 'qns2_checked',
                 'qns3_text', 'qns3_checked', 'qns4_text', 'qns4_checked'
             ]
-        elif is_teacher:
+        elif user_role == 'teacher':
             # Teachers can only update validation fields
             update_fields = [
                 'status', 'grade', 'comments_and_recommendations',
@@ -730,10 +819,10 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             
             # Validate that at least 2 questions are checked (same as learning API)
             checked_count = sum([
-                topic_data.get('qns1_checked', topic.qns1_checked),
-                topic_data.get('qns2_checked', topic.qns2_checked),
-                topic_data.get('qns3_checked', topic.qns3_checked),
-                topic_data.get('qns4_checked', topic.qns4_checked)
+                topic_data.get('qns1_checked', student_topic_progress.qns1_checked),
+                topic_data.get('qns2_checked', student_topic_progress.qns2_checked),
+                topic_data.get('qns3_checked', student_topic_progress.qns3_checked),
+                topic_data.get('qns4_checked', student_topic_progress.qns4_checked)
             ])
             
             if checked_count < 2:
@@ -746,85 +835,91 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         updated = False
         for field in update_fields:
             if field in topic_data:
-                setattr(topic, field, topic_data[field])
+                setattr(student_topic_progress, field, topic_data[field])
                 updated = True
         
         if updated:
             # Update status based on grade (same logic as Topic model)
-            grade = topic_data.get('grade', topic.grade)
+            grade = topic_data.get('grade', student_topic_progress.grade)
             if grade >= 7:
-                topic.status = 'validated'
+                student_topic_progress.status = 'validated'
             elif grade > 0:
-                topic.status = 'in_progress'
+                student_topic_progress.status = 'in_progress'
             else:
-                topic.status = 'not_started'
+                student_topic_progress.status = 'not_started'
             
-            topic.save()
-            return topic
+            student_topic_progress.save()
+            return student_topic_progress
         
         return None
-
-
-@extend_schema_view(
-    list=extend_schema(tags=["Academics"]),
-    retrieve=extend_schema(tags=["Academics"]),
-    create=extend_schema(tags=["Academics"]),
-    update=extend_schema(tags=["Academics"]),
-    partial_update=extend_schema(tags=["Academics"]),
-    destroy=extend_schema(tags=["Academics"]),
-)
-class DepartmentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Department.objects.select_related("college", "hod").order_by("name")
-    serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["name", "code"]
-    ordering_fields = ["name", "code"]
-
-
-@extend_schema_view(
-    list=extend_schema(tags=["Academics"]),
-    retrieve=extend_schema(tags=["Academics"]),
-    create=extend_schema(tags=["Academics"]),
-    update=extend_schema(tags=["Academics"]),
-    partial_update=extend_schema(tags=["Academics"]),
-    destroy=extend_schema(tags=["Academics"]),
-)
-class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Teacher.objects.select_related("user", "college", "department").prefetch_related("subjects_handled").order_by("last_name", "first_name")
-    serializer_class = TeacherSerializer
-    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["department", "is_hod", "is_active"]
-    search_fields = ["first_name", "last_name", "email", "employee_id"]
-    ordering_fields = ["last_name", "first_name", "date_of_joining"]
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Override destroy method to properly delete the associated User account
-        when deleting a Teacher.
-        """
-        instance = self.get_object()
-        user = instance.user
+    
+    def _create_topic_progress_for_student_subject(self, student, subject, class_obj):
+        """Create topic progress records for a student when they are assigned to a subject."""
+        from learning.models import Topic
+        topics = Topic.objects.filter(subject=subject, is_active=True)
         
-        # Store user ID before deletion for potential cleanup
-        user_id = user.id if user else None
+        topic_progress_assignments = []
+        for topic in topics:
+            # Check if topic progress already exists
+            if not StudentTopicProgress.objects.filter(
+                student=student,
+                topic=topic,
+                class_ref=class_obj
+            ).exists():
+                topic_progress_assignments.append(
+                    StudentTopicProgress(
+                        student=student,
+                        topic=topic,
+                        subject=subject,
+                        class_ref=class_obj,
+                        status='not_started',
+                        grade=0,
+                        comments_and_recommendations='',
+                        qns1_text=topic.qns1_text,
+                        qns2_text=topic.qns2_text,
+                        qns3_text=topic.qns3_text,
+                        qns4_text=topic.qns4_text,
+                    )
+                )
         
-        # Delete the teacher instance (this should cascade delete the user due to CASCADE)
-        self.perform_destroy(instance)
+        # Bulk create topic progress records
+        if topic_progress_assignments:
+            StudentTopicProgress.objects.bulk_create(topic_progress_assignments)
+    
+    def _ensure_all_students_have_topic_progress(self, subject, class_obj):
+        """Ensure all students in a class have topic progress for all topics in a subject."""
+        # Get all students in the class
+        students = Student.objects.filter(class_ref=class_obj, is_active=True)
         
-        # Double-check: if user still exists, delete it explicitly
-        # This handles cases where CASCADE might not work as expected
-        if user_id:
-            from iam.models import User
-            try:
-                remaining_user = User.objects.get(id=user_id)
-                remaining_user.delete()
-            except User.DoesNotExist:
-                # User was already deleted by CASCADE, which is good
-                pass
+        # Get all topics in the subject
+        from learning.models import Topic
+        topics = Topic.objects.filter(subject=subject, is_active=True)
         
-        return Response({
-            "message": "Teacher deleted successfully",
-            "status": "success"
-        }, status=status.HTTP_200_OK)
+        topic_progress_assignments = []
+        for student in students:
+            for topic in topics:
+                # Check if topic progress already exists
+                if not StudentTopicProgress.objects.filter(
+                    student=student,
+                    topic=topic,
+                    class_ref=class_obj
+                ).exists():
+                    topic_progress_assignments.append(
+                        StudentTopicProgress(
+                            student=student,
+                            topic=topic,
+                            subject=subject,
+                            class_ref=class_obj,
+                            status='not_started',
+                            grade=0,
+                            comments_and_recommendations='',
+                            qns1_text=topic.qns1_text,
+                            qns2_text=topic.qns2_text,
+                            qns3_text=topic.qns3_text,
+                            qns4_text=topic.qns4_text,
+                        )
+                    )
+        
+        # Bulk create topic progress records
+        if topic_progress_assignments:
+            StudentTopicProgress.objects.bulk_create(topic_progress_assignments)
