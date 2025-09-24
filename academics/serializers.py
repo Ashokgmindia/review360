@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
-from .models import Class, Student, Department, Teacher
+from .models import Class, Student, Department, Teacher, StudentSubject
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -98,6 +98,10 @@ class ClassSerializer(serializers.ModelSerializer):
                         student.class_ref = class_instance
                         student.save()
                     
+                    # Auto-assign teacher's subjects to students if teacher is assigned
+                    if class_instance.teacher:
+                        self._assign_teacher_subjects_to_students(class_instance, students_to_assign)
+                    
                     # Update metadata with assignment info
                     class_instance.metadata['student_upload_result']['assigned_to_class'] = students_to_assign.count()
                     class_instance.save()
@@ -116,6 +120,38 @@ class ClassSerializer(serializers.ModelSerializer):
                 class_instance.save()
         
         return class_instance
+
+    def _assign_teacher_subjects_to_students(self, class_instance, students):
+        """Helper method to assign teacher's subjects to students."""
+        teacher = class_instance.teacher
+        if not teacher:
+            return
+        
+        # Get teacher's subjects that are active
+        teacher_subjects = teacher.subjects_handled.filter(is_active=True)
+        
+        # Create StudentSubject assignments for each student and subject
+        student_subject_assignments = []
+        for student in students:
+            for subject in teacher_subjects:
+                # Check if assignment already exists
+                if not StudentSubject.objects.filter(
+                    student=student,
+                    subject=subject,
+                    class_ref=class_instance
+                ).exists():
+                    student_subject_assignments.append(
+                        StudentSubject(
+                            student=student,
+                            subject=subject,
+                            teacher=teacher,
+                            class_ref=class_instance
+                        )
+                    )
+        
+        # Bulk create assignments
+        if student_subject_assignments:
+            StudentSubject.objects.bulk_create(student_subject_assignments)
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -155,38 +191,61 @@ class StudentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_subjects(self, obj):
-        """Get all subjects assigned to the student's class."""
+        """Get all subjects assigned to the student with teacher information."""
         if not obj.class_ref:
             return []
         
-        from learning.models import Subject
-        subjects = Subject.objects.filter(class_ref=obj.class_ref, is_active=True)
+        # Get student's assigned subjects with teacher info
+        student_subjects = StudentSubject.objects.filter(
+            student=obj,
+            class_ref=obj.class_ref,
+            is_active=True
+        ).select_related('subject', 'teacher', 'subject__department')
+        
         return [
             {
-                "id": subject.id,
-                "name": subject.name,
-                "code": subject.code,
-                "description": subject.description,
-                "semester": subject.semester,
-                "credits": subject.credits,
-                "is_elective": subject.is_elective,
+                "id": assignment.subject.id,
+                "name": assignment.subject.name,
+                "code": assignment.subject.code,
+                "description": assignment.subject.description,
+                "semester": assignment.subject.semester,
+                "credits": assignment.subject.credits,
+                "is_elective": assignment.subject.is_elective,
                 "department": {
-                    "id": subject.department.id,
-                    "name": subject.department.name,
-                    "code": subject.department.code
-                } if subject.department else None
+                    "id": assignment.subject.department.id,
+                    "name": assignment.subject.department.name,
+                    "code": assignment.subject.department.code
+                } if assignment.subject.department else None,
+                "teacher": {
+                    "id": assignment.teacher.id,
+                    "first_name": assignment.teacher.first_name,
+                    "last_name": assignment.teacher.last_name,
+                    "email": assignment.teacher.email,
+                    "employee_id": assignment.teacher.employee_id,
+                    "designation": assignment.teacher.designation
+                } if assignment.teacher else None,
+                "assigned_at": assignment.assigned_at
             }
-            for subject in subjects
+            for assignment in student_subjects
         ]
 
     def get_topics(self, obj):
-        """Get all topics from subjects assigned to the student's class."""
+        """Get all topics from subjects assigned to the student."""
         if not obj.class_ref:
             return []
         
-        from learning.models import Subject, Topic
-        subjects = Subject.objects.filter(class_ref=obj.class_ref, is_active=True)
-        topics = Topic.objects.filter(subject__in=subjects, is_active=True)
+        # Get student's assigned subjects
+        student_subjects = StudentSubject.objects.filter(
+            student=obj,
+            class_ref=obj.class_ref,
+            is_active=True
+        ).values_list('subject_id', flat=True)
+        
+        from learning.models import Topic
+        topics = Topic.objects.filter(
+            subject_id__in=student_subjects, 
+            is_active=True
+        ).select_related('subject')
         
         return [
             {
@@ -416,4 +475,76 @@ class TeacherSerializer(serializers.ModelSerializer):
             instance.subjects_handled.set(subjects_handled)
         
         return instance
+
+
+class StudentSubjectUpdateSerializer(serializers.Serializer):
+    """Serializer for updating student subject assignments with topics."""
+    subject_id = serializers.IntegerField(help_text="ID of the subject")
+    teacher_id = serializers.IntegerField(required=False, allow_null=True, help_text="ID of the teacher (optional)")
+    is_active = serializers.BooleanField(default=True, help_text="Whether the assignment is active")
+    topics = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        default=list,
+        help_text="List of topics to update for this subject"
+    )
+
+    def validate_subject_id(self, value):
+        """Validate that the subject exists and is active."""
+        from learning.models import Subject
+        try:
+            subject = Subject.objects.get(id=value, is_active=True)
+            return value
+        except Subject.DoesNotExist:
+            raise serializers.ValidationError("Subject with this ID does not exist or is not active.")
+
+    def validate_teacher_id(self, value):
+        """Validate that the teacher exists and is active."""
+        if value is None:
+            return value
+        try:
+            teacher = Teacher.objects.get(id=value, is_active=True)
+            return value
+        except Teacher.DoesNotExist:
+            raise serializers.ValidationError("Teacher with this ID does not exist or is not active.")
+
+    def validate_topics(self, value):
+        """Validate topics data structure."""
+        for topic_data in value:
+            if not isinstance(topic_data, dict):
+                raise serializers.ValidationError("Each topic must be a dictionary.")
+            
+            # Validate required fields for topics
+            if 'id' not in topic_data:
+                raise serializers.ValidationError("Each topic must have an 'id' field.")
+            
+            # Validate topic ID exists
+            topic_id = topic_data.get('id')
+            if topic_id:
+                from learning.models import Topic
+                try:
+                    Topic.objects.get(id=topic_id, is_active=True)
+                except Topic.DoesNotExist:
+                    raise serializers.ValidationError(f"Topic with ID {topic_id} does not exist or is not active.")
+        
+        return value
+
+
+class StudentSubjectsUpdateSerializer(serializers.Serializer):
+    """Serializer for the main request body."""
+    subjects = serializers.ListField(
+        child=StudentSubjectUpdateSerializer(),
+        required=True,
+        help_text="List of subjects to update for the student"
+    )
+
+    def validate_subjects(self, value):
+        """Validate that at least one subject is provided."""
+        if not value:
+            raise serializers.ValidationError("At least one subject must be provided.")
+        return value
+
+    class Meta:
+        # This helps with OpenAPI schema generation
+        ref_name = "StudentSubjectsUpdate"
 

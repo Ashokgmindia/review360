@@ -176,6 +176,30 @@ class Teacher(models.Model):
             models.Index(fields=['employee_id']),
         ]
 
+
+class StudentSubject(models.Model):
+    """Model to track subject assignments to students with teacher information."""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="assigned_subjects")
+    subject = models.ForeignKey("learning.Subject", on_delete=models.CASCADE, related_name="assigned_students")
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name="teaching_assignments")
+    class_ref = models.ForeignKey(Class, on_delete=models.CASCADE, related_name="student_subject_assignments")
+    is_active = models.BooleanField(default=True)
+    assigned_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("student", "subject", "class_ref")
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['subject', 'is_active']),
+            models.Index(fields=['teacher', 'is_active']),
+            models.Index(fields=['class_ref', 'is_active']),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.student} - {self.subject} ({self.teacher})"
+
     
     
     
