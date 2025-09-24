@@ -22,6 +22,7 @@ class FollowUpSession(models.Model):
     session_datetime = models.DateTimeField()
     location = models.CharField(max_length=255, blank=True, default="")
     objective = models.TextField(blank=True, default="")
+    notes_for_student = models.TextField(blank=True, default="", help_text="Notes or instructions for the student")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="scheduled")
     google_calendar_event_id = models.CharField(max_length=255, blank=True, default="")
     academic_year = models.CharField(max_length=9)

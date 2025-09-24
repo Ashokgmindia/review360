@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
+from typing import List, Dict, Any, Optional
 from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress
 
 
@@ -221,7 +222,7 @@ class StudentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def get_subjects(self, obj):
+    def get_subjects(self, obj: Student) -> List[Dict[str, Any]]:
         """Get all subjects assigned to the student with teacher information."""
         if not obj.class_ref:
             return []
@@ -260,7 +261,7 @@ class StudentSerializer(serializers.ModelSerializer):
             for assignment in student_subjects
         ]
 
-    def get_topics(self, obj):
+    def get_topics(self, obj: Student) -> List[Dict[str, Any]]:
         """Get all topics from subjects assigned to the student with student-specific progress."""
         if not obj.class_ref:
             return []
@@ -427,7 +428,7 @@ class TeacherSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def get_subjects_handled_names(self, obj):
+    def get_subjects_handled_names(self, obj: Teacher) -> List[Dict[str, Any]]:
         """Return list of subject names and codes for the teacher."""
         subjects = obj.subjects_handled.filter(is_active=True)
         return [

@@ -62,7 +62,7 @@ class RoleBasedPermission(BasePermission):
                 'topic': ['create', 'read', 'update', 'delete'],
             },
             'followup': {
-                'followupsession': ['read', 'update', 'delete'],
+                'followupsession': ['create', 'read', 'update', 'delete'],
             },
             'compliance': {
                 'auditlog': ['read'],

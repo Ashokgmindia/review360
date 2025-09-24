@@ -155,6 +155,15 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         tags=["Academics"],
         summary="Get students by class ID",
         description="Retrieve all students belonging to a specific class with their subjects and teacher information",
+        parameters=[
+            {
+                'name': 'class_id',
+                'in': 'path',
+                'description': 'Class ID',
+                'required': True,
+                'schema': {'type': 'integer'}
+            }
+        ],
         responses={
             200: {
                 'description': 'Paginated list of students in the class',
@@ -312,6 +321,22 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         tags=["Academics"],
         summary="Get specific student by class ID and student ID",
         description="Retrieve a specific student from a particular class with their subjects and teacher information",
+        parameters=[
+            {
+                'name': 'class_id',
+                'in': 'path',
+                'description': 'Class ID',
+                'required': True,
+                'schema': {'type': 'integer'}
+            },
+            {
+                'name': 'student_id',
+                'in': 'path',
+                'description': 'Student ID',
+                'required': True,
+                'schema': {'type': 'integer'}
+            }
+        ],
         responses={
             200: {
                 'description': 'Student details with subjects and teacher info',
