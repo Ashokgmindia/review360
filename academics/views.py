@@ -156,10 +156,12 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         description="Retrieve all students belonging to a specific class with their subjects and teacher information",
         responses={
             200: {
-                'description': 'List of students in the class',
+                'description': 'Paginated list of students in the class',
                 'type': 'object',
                 'properties': {
-                    'count': {'type': 'integer'},
+                    'count': {'type': 'integer', 'description': 'Total number of students'},
+                    'next': {'type': 'string', 'nullable': True, 'description': 'URL for next page'},
+                    'previous': {'type': 'string', 'nullable': True, 'description': 'URL for previous page'},
                     'results': {
                         'type': 'array',
                         'items': {
@@ -214,6 +216,25 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                 }
                             }
                         }
+                    },
+                    'class_info': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'integer'},
+                            'name': {'type': 'string'},
+                            'academic_year': {'type': 'string'},
+                            'teacher': {
+                                'type': 'object',
+                                'nullable': True,
+                                'properties': {
+                                    'id': {'type': 'integer'},
+                                    'first_name': {'type': 'string'},
+                                    'last_name': {'type': 'string'},
+                                    'email': {'type': 'string'},
+                                    'employee_id': {'type': 'string'}
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -239,13 +260,37 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         user = getattr(request, "user", None)
         if getattr(user, "role", None) == "teacher":
             # Teachers can only see students from their classes
-            students = students.filter(class_ref__teacher_id=user.id)
+            students = students.filter(class_ref__teacher__user_id=user.id)
         
-        # Serialize the students
+        # Use DRF's pagination
+        page = self.paginate_queryset(students)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            paginated_response = self.get_paginated_response(serializer.data)
+            
+            # Add class_info to the paginated response
+            paginated_response.data['class_info'] = {
+                "id": class_obj.id,
+                "name": class_obj.name,
+                "academic_year": class_obj.academic_year,
+                "teacher": {
+                    "id": class_obj.teacher.id,
+                    "first_name": class_obj.teacher.first_name,
+                    "last_name": class_obj.teacher.last_name,
+                    "email": class_obj.teacher.email,
+                    "employee_id": class_obj.teacher.employee_id
+                } if class_obj.teacher else None
+            }
+            
+            return paginated_response
+        
+        # Fallback if pagination is not configured
         serializer = self.get_serializer(students, many=True)
         
         return Response({
             "count": students.count(),
+            "next": None,
+            "previous": None,
             "results": serializer.data,
             "class_info": {
                 "id": class_obj.id,
@@ -371,7 +416,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         user = getattr(request, "user", None)
         if getattr(user, "role", None) == "teacher":
             # Teachers can only see students from their classes
-            if class_obj.teacher_id != user.id:
+            if class_obj.teacher.user_id != user.id:
                 return Response(
                     {"error": "Access denied"}, 
                     status=status.HTTP_403_FORBIDDEN
@@ -561,7 +606,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         user = getattr(request, "user", None)
         if getattr(user, "role", None) == "teacher":
             # Teachers can only update students from their classes
-            if class_obj.teacher_id != user.id:
+            if class_obj.teacher.user_id != user.id:
                 return Response(
                     {"error": "Access denied"}, 
                     status=status.HTTP_403_FORBIDDEN
