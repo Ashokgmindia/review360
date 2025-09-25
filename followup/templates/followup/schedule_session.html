@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Follow-up Session</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .form-container {
+            padding: 30px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .section-icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-control select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 12px center;
+            background-repeat: no-repeat;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .email-info {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Schedule Follow-up Session</h1>
+            <p>Create a new follow-up session with Google Calendar integration</p>
+        </div>
+
+        <div class="form-container">
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+
+            <form id="scheduleForm">
+                <!-- Location Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <span class="section-icon">📍</span>
+                        Location
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Session Location</label>
+                        <select id="location" name="location" class="form-control" required>
+                            <option value="">Select a location</option>
+                            <option value="Classroom A12">Classroom A12</option>
+                            <option value="Classroom B15">Classroom B15</option>
+                            <option value="Conference Room 1">Conference Room 1</option>
+                            <option value="Library Study Room">Library Study Room</option>
+                            <option value="Online - Zoom">Online - Zoom</option>
+                            <option value="Online - Teams">Online - Teams</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Objective Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <span class="section-icon">📝</span>
+                        Objective of the Session
+                    </div>
+                    <div class="form-group">
+                        <label for="objective">Session Objective</label>
+                        <select id="objective" name="objective" class="form-control" required>
+                            <option value="">Select an objective</option>
+                            <option value="Validation of context and objectives">Validation of context and objectives</option>
+                            <option value="Progress review and feedback">Progress review and feedback</option>
+                            <option value="Clarification of concepts">Clarification of concepts</option>
+                            <option value="Assignment discussion">Assignment discussion</option>
+                            <option value="Exam preparation">Exam preparation</option>
+                            <option value="Project guidance">Project guidance</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <span class="section-icon">💬</span>
+                        Notes for the Student
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Preparation Notes</label>
+                        <textarea id="notes" name="notes" class="form-control" 
+                                placeholder="Please prepare your competitive analysis and company documents..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Google Calendar Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <span class="section-icon">📅</span>
+                        Google Calendar Synchronization
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="addToCalendar" name="add_to_google_calendar">
+                        <label for="addToCalendar">Add to Google Calendar</label>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="inviteStudent" name="invite_student">
+                        <label for="inviteStudent">Invite the student (email: <span id="studentEmail">pierre.martin@student.fr</span>)</label>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="automaticReminder" name="automatic_reminder">
+                        <label for="automaticReminder">Automatic reminder 24 hours in advance</label>
+                    </div>
+                </div>
+
+                <!-- Hidden fields for session data -->
+                <input type="hidden" id="studentId" name="student" value="">
+                <input type="hidden" id="subjectId" name="subject" value="">
+                <input type="hidden" id="topicId" name="topic" value="">
+                <input type="hidden" id="teacherId" name="teacher" value="">
+                <input type="hidden" id="sessionDateTime" name="session_datetime" value="">
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-primary" id="scheduleWithCalendar">
+                        <span>📅</span>
+                        Schedule & Add to Calendar
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="scheduleWithoutCalendar">
+                        <span>💾</span>
+                        Schedule without Calendar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="cancelBtn">
+                        <span>❌</span>
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Form handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('scheduleForm');
+            const scheduleWithCalendarBtn = document.getElementById('scheduleWithCalendar');
+            const scheduleWithoutCalendarBtn = document.getElementById('scheduleWithoutCalendar');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            // Get URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const studentId = urlParams.get('student_id');
+            const subjectId = urlParams.get('subject_id');
+            const topicId = urlParams.get('topic_id');
+            const teacherId = urlParams.get('teacher_id');
+            const sessionDateTime = urlParams.get('session_datetime');
+
+            // Populate hidden fields
+            if (studentId) document.getElementById('studentId').value = studentId;
+            if (subjectId) document.getElementById('subjectId').value = subjectId;
+            if (topicId) document.getElementById('topicId').value = topicId;
+            if (teacherId) document.getElementById('teacherId').value = teacherId;
+            if (sessionDateTime) document.getElementById('sessionDateTime').value = sessionDateTime;
+
+            // Load student data
+            if (studentId) {
+                loadStudentData(studentId);
+            }
+
+            // Event listeners
+            scheduleWithCalendarBtn.addEventListener('click', function() {
+                document.getElementById('addToCalendar').checked = true;
+                submitForm();
+            });
+
+            scheduleWithoutCalendarBtn.addEventListener('click', function() {
+                document.getElementById('addToCalendar').checked = false;
+                submitForm();
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+                    window.close();
+                }
+            });
+
+            // Load student data
+            function loadStudentData(studentId) {
+                fetch(`/api/v1/followup/student/${studentId}/topics/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.student) {
+                            document.getElementById('studentEmail').textContent = data.student.email;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading student data:', error);
+                    });
+            }
+
+            // Submit form
+            function submitForm() {
+                if (!validateForm()) {
+                    return;
+                }
+
+                showLoading(true);
+                hideMessages();
+
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                // Convert checkboxes to boolean
+                data.add_to_google_calendar = document.getElementById('addToCalendar').checked;
+                data.invite_student = document.getElementById('inviteStudent').checked;
+                data.automatic_reminder = document.getElementById('automaticReminder').checked;
+
+                fetch('/api/v1/followup/sessions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showLoading(false);
+                    if (data.id) {
+                        showSuccess('Session scheduled successfully!');
+                        setTimeout(() => {
+                            window.close();
+                        }, 2000);
+                    } else {
+                        showError('Failed to schedule session. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    showError('An error occurred while scheduling the session.');
+                    console.error('Error:', error);
+                });
+            }
+
+            // Validate form
+            function validateForm() {
+                const location = document.getElementById('location').value;
+                const objective = document.getElementById('objective').value;
+                const studentId = document.getElementById('studentId').value;
+                const sessionDateTime = document.getElementById('sessionDateTime').value;
+
+                if (!location) {
+                    showError('Please select a location.');
+                    return false;
+                }
+
+                if (!objective) {
+                    showError('Please select an objective.');
+                    return false;
+                }
+
+                if (!studentId) {
+                    showError('Student information is missing.');
+                    return false;
+                }
+
+                if (!sessionDateTime) {
+                    showError('Session date and time is missing.');
+                    return false;
+                }
+
+                return true;
+            }
+
+            // Show/hide loading
+            function showLoading(show) {
+                loading.style.display = show ? 'block' : 'none';
+                scheduleWithCalendarBtn.disabled = show;
+                scheduleWithoutCalendarBtn.disabled = show;
+                cancelBtn.disabled = show;
+            }
+
+            // Show error message
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                successMessage.style.display = 'none';
+            }
+
+            // Show success message
+            function showSuccess(message) {
+                successMessage.textContent = message;
+                successMessage.style.display = 'block';
+                errorMessage.style.display = 'none';
+            }
+
+            // Hide messages
+            function hideMessages() {
+                errorMessage.style.display = 'none';
+                successMessage.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -65,4 +65,9 @@ Thumbs.db
 .env
 .env.*
 
+# Google API credentials
+google_credentials.json
+google_client_secrets.json
+google_token.json
+
 

@@ -1,0 +1,31 @@
+Follow-up Session Scheduled
+
+Dear {{ student_name }},
+
+A follow-up session has been scheduled for you. Please find the details below:
+
+SESSION DETAILS:
+================
+Subject: {{ subject_name }}
+Topic: {{ topic_name }}
+Teacher: {{ teacher_name }}
+Date & Time: {{ session_datetime|date:"F d, Y" }} at {{ session_datetime|time:"g:i A" }}
+Location: {{ location }}
+{% if objective %}Objective: {{ objective }}{% endif %}
+
+{% if notes_for_student %}
+NOTES FOR YOU:
+==============
+{{ notes_for_student }}
+{% endif %}
+
+Please make sure to:
+- Arrive on time for the session
+- Bring any required materials or documents
+- Prepare any questions you may have
+
+If you need to reschedule or have any questions, please contact your teacher.
+
+---
+This is an automated message from the Review360 system.
+{% if event_id %}Calendar event ID: {{ event_id }}{% endif %}

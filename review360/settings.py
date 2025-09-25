@@ -208,6 +208,19 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True  # For Transport Layer Security
 EMAIL_HOST_USER = "gmi.tn.dev.akmarimuthu@gmail.com"  # Your full Gmail address
 EMAIL_HOST_PASSWORD = "ragmvkoqvlvvzalr"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Google Calendar Integration Settings
+GOOGLE_CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, 'google_client_secrets.json')
+GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'google_credentials.json')
+
+# Celery Configuration for Background Tasks
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
 
 # drf-spectacular
 SPECTACULAR_SETTINGS = {

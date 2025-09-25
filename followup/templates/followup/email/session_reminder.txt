@@ -1,0 +1,33 @@
+Follow-up Session Reminder
+
+Dear {{ student_name }},
+
+FRIENDLY REMINDER
+=================
+This is a reminder that you have a follow-up session scheduled for TOMORROW.
+
+SESSION DETAILS:
+================
+Subject: {{ subject_name }}
+Topic: {{ topic_name }}
+Teacher: {{ teacher_name }}
+Date & Time: {{ session_datetime|date:"F d, Y" }} at {{ session_datetime|time:"g:i A" }}
+Location: {{ location }}
+{% if objective %}Objective: {{ objective }}{% endif %}
+
+{% if notes_for_student %}
+PREPARATION NOTES:
+==================
+{{ notes_for_student }}
+{% endif %}
+
+Please remember to:
+- Arrive on time for the session
+- Bring any required materials or documents
+- Prepare any questions you may have
+- Check the location beforehand if needed
+
+If you need to reschedule or have any questions, please contact your teacher as soon as possible.
+
+---
+This is an automated reminder from the Review360 system.

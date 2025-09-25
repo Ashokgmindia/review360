@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Follow-up Session Invitation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 0 0 8px 8px;
+        }
+        .session-details {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .detail-row {
+            margin: 10px 0;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        .notes {
+            background-color: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📅 Follow-up Session Scheduled</h1>
+    </div>
+    
+    <div class="content">
+        <p>Dear {{ student_name }},</p>
+        
+        <p>A follow-up session has been scheduled for you. Please find the details below:</p>
+        
+        <div class="session-details">
+            <div class="detail-row">
+                <span class="detail-label">📚 Subject:</span> {{ subject_name }}
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">📖 Topic:</span> {{ topic_name }}
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">👨‍🏫 Teacher:</span> {{ teacher_name }}
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">📅 Date & Time:</span> {{ session_datetime|date:"F d, Y" }} at {{ session_datetime|time:"g:i A" }}
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">📍 Location:</span> {{ location }}
+            </div>
+            {% if objective %}
+            <div class="detail-row">
+                <span class="detail-label">🎯 Objective:</span> {{ objective }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if notes_for_student %}
+        <div class="notes">
+            <h3>📝 Notes for You:</h3>
+            <p>{{ notes_for_student }}</p>
+        </div>
+        {% endif %}
+        
+        <p><strong>Please make sure to:</strong></p>
+        <ul>
+            <li>Arrive on time for the session</li>
+            <li>Bring any required materials or documents</li>
+            <li>Prepare any questions you may have</li>
+        </ul>
+        
+        <p>If you need to reschedule or have any questions, please contact your teacher.</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message from the Review360 system.</p>
+        {% if event_id %}
+        <p>Calendar event ID: {{ event_id }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>

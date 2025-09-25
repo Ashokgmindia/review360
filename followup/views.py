@@ -4,20 +4,51 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from django.db import transaction
+from django.conf import settings
+from django.shortcuts import render
+from django.http import JsonResponse
+import logging
 
 from .models import FollowUpSession
 from .serializers import FollowUpSessionSerializer
+from .google_calendar_service import google_calendar_service
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
 
+logger = logging.getLogger(__name__)
+
 
 @extend_schema_view(
-    list=extend_schema(tags=["Followup"]),
-    retrieve=extend_schema(tags=["Followup"]),
-    create=extend_schema(tags=["Followup"]),
-    update=extend_schema(tags=["Followup"]),
-    partial_update=extend_schema(tags=["Followup"]),
-    destroy=extend_schema(tags=["Followup"]),
+    list=extend_schema(
+        tags=["Followup"],
+        summary="List follow-up sessions",
+        description="Get a list of all follow-up sessions with automatic Google Calendar and email integration"
+    ),
+    retrieve=extend_schema(
+        tags=["Followup"],
+        summary="Get session details",
+        description="Retrieve details of a specific follow-up session"
+    ),
+    create=extend_schema(
+        tags=["Followup"],
+        summary="Create session with automatic integration",
+        description="Create a new follow-up session with automatic Google Calendar event creation and email invitations"
+    ),
+    update=extend_schema(
+        tags=["Followup"],
+        summary="Update session with automatic integration",
+        description="Update a follow-up session with automatic Google Calendar and email integration"
+    ),
+    partial_update=extend_schema(
+        tags=["Followup"],
+        summary="Partially update session",
+        description="Partially update a follow-up session with automatic Google Calendar and email integration"
+    ),
+    destroy=extend_schema(
+        tags=["Followup"],
+        summary="Delete session",
+        description="Delete a follow-up session and automatically remove associated Google Calendar events"
+    ),
 )
 @extend_schema(
     tags=["Followup"],
@@ -194,4 +225,153 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 {"error": "Student not found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+    
+    def perform_create(self, serializer):
+        """Override create to handle Google Calendar integration and email invitations."""
+        with transaction.atomic():
+            instance = serializer.save()
+            
+            # Handle Google Calendar integration automatically
+            if instance.add_to_google_calendar:
+                try:
+                    self._create_google_calendar_event(instance)
+                    logger.info(f"Google Calendar event created for session {instance.id}")
+                except Exception as e:
+                    logger.error(f"Failed to create Google Calendar event for session {instance.id}: {e}")
+            
+            # Send email invitation automatically if requested
+            if instance.invite_student and instance.student and instance.student.email:
+                try:
+                    self._send_email_invitation(instance)
+                    logger.info(f"Email invitation sent for session {instance.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send email invitation for session {instance.id}: {e}")
+    
+    def perform_update(self, serializer):
+        """Override update to handle Google Calendar integration and email invitations."""
+        with transaction.atomic():
+            instance = serializer.save()
+            
+            # Handle Google Calendar integration automatically
+            if instance.add_to_google_calendar:
+                if instance.google_calendar_event_id:
+                    # Update existing event
+                    try:
+                        self._update_google_calendar_event(instance)
+                        logger.info(f"Google Calendar event updated for session {instance.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to update Google Calendar event for session {instance.id}: {e}")
+                else:
+                    # Create new event
+                    try:
+                        self._create_google_calendar_event(instance)
+                        logger.info(f"Google Calendar event created for session {instance.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to create Google Calendar event for session {instance.id}: {e}")
+            elif not instance.add_to_google_calendar and instance.google_calendar_event_id:
+                # Remove from Google Calendar
+                try:
+                    self._delete_google_calendar_event(instance)
+                    logger.info(f"Google Calendar event deleted for session {instance.id}")
+                except Exception as e:
+                    logger.error(f"Failed to delete Google Calendar event for session {instance.id}: {e}")
+            
+            # Send email invitation automatically if requested
+            if instance.invite_student and instance.student and instance.student.email:
+                try:
+                    self._send_email_invitation(instance)
+                    logger.info(f"Email invitation sent for session {instance.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send email invitation for session {instance.id}: {e}")
+    
+    def perform_destroy(self, instance):
+        """Override destroy to handle Google Calendar cleanup."""
+        with transaction.atomic():
+            # Delete Google Calendar event if it exists
+            if instance.google_calendar_event_id:
+                self._delete_google_calendar_event(instance)
+            
+            instance.delete()
+    
+    def _create_google_calendar_event(self, session):
+        """Create Google Calendar event for the session."""
+        try:
+            session_data = self._prepare_session_data(session)
+            event_id = google_calendar_service.create_event(session_data)
+            
+            if event_id:
+                session.google_calendar_event_id = event_id
+                session.save(update_fields=['google_calendar_event_id'])
+                logger.info(f"Created Google Calendar event {event_id} for session {session.id}")
+            else:
+                logger.warning(f"Failed to create Google Calendar event for session {session.id}")
+                
+        except Exception as e:
+            logger.error(f"Error creating Google Calendar event for session {session.id}: {e}")
+    
+    def _update_google_calendar_event(self, session):
+        """Update Google Calendar event for the session."""
+        try:
+            session_data = self._prepare_session_data(session)
+            success = google_calendar_service.update_event(session.google_calendar_event_id, session_data)
+            
+            if success:
+                logger.info(f"Updated Google Calendar event {session.google_calendar_event_id} for session {session.id}")
+            else:
+                logger.warning(f"Failed to update Google Calendar event for session {session.id}")
+                
+        except Exception as e:
+            logger.error(f"Error updating Google Calendar event for session {session.id}: {e}")
+    
+    def _delete_google_calendar_event(self, session):
+        """Delete Google Calendar event for the session."""
+        try:
+            success = google_calendar_service.delete_event(session.google_calendar_event_id)
+            
+            if success:
+                logger.info(f"Deleted Google Calendar event {session.google_calendar_event_id} for session {session.id}")
+            else:
+                logger.warning(f"Failed to delete Google Calendar event for session {session.id}")
+                
+        except Exception as e:
+            logger.error(f"Error deleting Google Calendar event for session {session.id}: {e}")
+    
+    def _send_email_invitation(self, session):
+        """Send email invitation for the session."""
+        try:
+            session_data = self._prepare_session_data(session)
+            success = google_calendar_service.send_email_invitation(session_data, session.google_calendar_event_id)
+            
+            if success:
+                logger.info(f"Sent email invitation for session {session.id}")
+            else:
+                logger.warning(f"Failed to send email invitation for session {session.id}")
+                
+        except Exception as e:
+            logger.error(f"Error sending email invitation for session {session.id}: {e}")
+    
+    def _prepare_session_data(self, session):
+        """Prepare session data for Google Calendar and email services."""
+        session_data = {
+            'student_name': session.student_name,
+            'student_email': session.student.email if session.student else None,
+            'teacher_name': session.teacher_name,
+            'teacher_email': session.teacher.email if session.teacher else None,
+            'subject_name': session.subject_name,
+            'topic_name': session.topic_name,
+            'session_datetime': session.session_datetime,
+            'location': session.location,
+            'objective': session.objective,
+            'notes_for_student': session.notes_for_student,
+            'send_invitations': session.invite_student,
+        }
+        return session_data
+    
+
+
+def schedule_session_view(request):
+    """
+    View to display the scheduling form.
+    """
+    return render(request, 'followup/schedule_session.html')
     

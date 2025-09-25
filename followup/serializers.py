@@ -9,6 +9,17 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
     topic_info = serializers.SerializerMethodField()
     teacher_info = serializers.SerializerMethodField()
     
+    # Google Calendar integration fields
+    add_to_google_calendar = serializers.BooleanField(
+        help_text="Automatically creates/updates Google Calendar event when True"
+    )
+    invite_student = serializers.BooleanField(
+        help_text="Automatically sends email invitation to student when True"
+    )
+    automatic_reminder = serializers.BooleanField(
+        help_text="Enables automatic 24-hour advance email reminders when True"
+    )
+    
     class Meta:
         model = FollowUpSession
         fields = [
@@ -28,6 +39,9 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
             "notes_for_student",
             "status",
             "google_calendar_event_id",
+            "add_to_google_calendar",
+            "invite_student",
+            "automatic_reminder",
             "academic_year",
             "student_info",
             "topic_info",
