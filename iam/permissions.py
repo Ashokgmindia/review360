@@ -41,6 +41,8 @@ class RoleBasedPermission(BasePermission):
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],
+                'location': ['create', 'read', 'update', 'delete'],
+                'objective': ['create', 'read', 'update', 'delete'],
             },
             'compliance': {
                 'auditlog': ['read'],
@@ -63,6 +65,8 @@ class RoleBasedPermission(BasePermission):
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],
+                'location': ['create', 'read', 'update', 'delete'],
+                'objective': ['create', 'read', 'update', 'delete'],
             },
             'compliance': {
                 'auditlog': ['read'],
@@ -85,6 +89,8 @@ class RoleBasedPermission(BasePermission):
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],
+                'location': ['read'],
+                'objective': ['read'],
             },
             'compliance': {
                 'auditlog': [],
@@ -107,6 +113,8 @@ class RoleBasedPermission(BasePermission):
             },
             'followup': {
                 'followupsession': ['read'],
+                'location': ['read'],
+                'objective': ['read'],
             },
             'compliance': {
                 'auditlog': [],

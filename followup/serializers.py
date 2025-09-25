@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from typing import Dict, Any, Optional
-from .models import FollowUpSession
+from .models import FollowUpSession, Location, Objective
 
 
 class FollowUpSessionSerializer(serializers.ModelSerializer):
@@ -8,6 +8,8 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
     student_info = serializers.SerializerMethodField()
     topic_info = serializers.SerializerMethodField()
     teacher_info = serializers.SerializerMethodField()
+    location_info = serializers.SerializerMethodField()
+    objective_info = serializers.SerializerMethodField()
     
     # Google Calendar integration fields
     add_to_google_calendar = serializers.BooleanField(
@@ -29,13 +31,15 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
             "subject",
             "topic",
             "teacher",
+            "location",
+            "objective",
             "student_name",
             "subject_name",
             "topic_name",
             "teacher_name",
+            "location_name",
+            "objective_title",
             "session_datetime",
-            "location",
-            "objective",
             "notes_for_student",
             "status",
             "google_calendar_event_id",
@@ -46,9 +50,11 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
             "student_info",
             "topic_info",
             "teacher_info",
+            "location_info",
+            "objective_info",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "student_name", "subject_name", "topic_name", "teacher_name"]
+        read_only_fields = ["id", "created_at", "student_name", "subject_name", "topic_name", "teacher_name", "location_name", "objective_title"]
     
     def get_student_info(self, obj: FollowUpSession) -> Optional[Dict[str, Any]]:
         """Get student information."""
@@ -86,6 +92,26 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
             }
         return None
     
+    def get_location_info(self, obj: FollowUpSession) -> Optional[Dict[str, Any]]:
+        """Get location information."""
+        if obj.location:
+            return {
+                "id": obj.location.id,
+                "name": obj.location.name,
+                "description": obj.location.description,
+            }
+        return None
+    
+    def get_objective_info(self, obj: FollowUpSession) -> Optional[Dict[str, Any]]:
+        """Get objective information."""
+        if obj.objective:
+            return {
+                "id": obj.objective.id,
+                "title": obj.objective.title,
+                "description": obj.objective.description,
+            }
+        return None
+    
     def create(self, validated_data):
         """Override create to automatically populate name fields."""
         # Auto-populate name fields from related objects
@@ -105,6 +131,13 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
         if teacher:
             validated_data['teacher_name'] = f"{teacher.first_name} {teacher.last_name}"
         
+        location = validated_data.get('location')
+        if location:
+            validated_data['location_name'] = location.name
+        
+        objective = validated_data.get('objective')
+        if objective:
+            validated_data['objective_title'] = objective.title
         
         return super().create(validated_data)
     
@@ -126,6 +159,14 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
         teacher = validated_data.get('teacher', instance.teacher)
         if teacher:
             validated_data['teacher_name'] = f"{teacher.first_name} {teacher.last_name}"
+        
+        location = validated_data.get('location', instance.location)
+        if location:
+            validated_data['location_name'] = location.name
+        
+        objective = validated_data.get('objective', instance.objective)
+        if objective:
+            validated_data['objective_title'] = objective.title
         
         return super().update(instance, validated_data)
 
@@ -165,6 +206,126 @@ class FollowUpSessionSerializer(serializers.ModelSerializer):
         teacher = attrs.get("teacher")
         if teacher and getattr(teacher, "college_id", None) not in (college.id, None):
             raise serializers.ValidationError({"teacher": "Must belong to same college."})
+        location = attrs.get("location")
+        if location and location.college_id != college.id:
+            raise serializers.ValidationError({"location": "Must belong to same college."})
+        objective = attrs.get("objective")
+        if objective and objective.college_id != college.id:
+            raise serializers.ValidationError({"objective": "Must belong to same college."})
+        return attrs
+
+
+class LocationSerializer(serializers.ModelSerializer):
+    """Serializer for Location model."""
+    
+    class Meta:
+        model = Location
+        fields = [
+            "id",
+            "name",
+            "description",
+            "college",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        """Override create to set college from user context."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        
+        # Determine college from creator
+        allowed = []
+        try:
+            allowed = list(getattr(user, "colleges").values_list("id", flat=True))
+        except Exception:
+            allowed = []
+        if getattr(user, "college_id", None):
+            allowed.append(user.college_id)
+        allowed = list({cid for cid in allowed if cid})
+        
+        college = getattr(user, "college", None)
+        if college is None:
+            if len(allowed) == 1:
+                from iam.models import College
+                college = College.objects.get(id=allowed[0])
+            else:
+                raise serializers.ValidationError({"college": "College cannot be determined for current user."})
+        
+        validated_data['college'] = college
+        return Location.objects.create(**validated_data)
+
+    def validate(self, attrs):
+        """Validate location data."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return attrs
+            
+        # Field-level permission validation
+        user_role = getattr(user, "role", None)
+        if user_role == "student":
+            raise serializers.ValidationError("Students cannot create or modify locations.")
+        
+        return attrs
+
+
+class ObjectiveSerializer(serializers.ModelSerializer):
+    """Serializer for Objective model."""
+    
+    class Meta:
+        model = Objective
+        fields = [
+            "id",
+            "title",
+            "description",
+            "college",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        """Override create to set college from user context."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        
+        # Determine college from creator
+        allowed = []
+        try:
+            allowed = list(getattr(user, "colleges").values_list("id", flat=True))
+        except Exception:
+            allowed = []
+        if getattr(user, "college_id", None):
+            allowed.append(user.college_id)
+        allowed = list({cid for cid in allowed if cid})
+        
+        college = getattr(user, "college", None)
+        if college is None:
+            if len(allowed) == 1:
+                from iam.models import College
+                college = College.objects.get(id=allowed[0])
+            else:
+                raise serializers.ValidationError({"college": "College cannot be determined for current user."})
+        
+        validated_data['college'] = college
+        return Objective.objects.create(**validated_data)
+
+    def validate(self, attrs):
+        """Validate objective data."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return attrs
+            
+        # Field-level permission validation
+        user_role = getattr(user, "role", None)
+        if user_role == "student":
+            raise serializers.ValidationError("Students cannot create or modify objectives.")
+        
         return attrs
 
 

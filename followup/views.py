@@ -9,8 +9,8 @@ from django.shortcuts import render
 from django.http import JsonResponse
 import logging
 
-from .models import FollowUpSession
-from .serializers import FollowUpSessionSerializer
+from .models import FollowUpSession, Location, Objective
+from .serializers import FollowUpSessionSerializer, LocationSerializer, ObjectiveSerializer
 from .google_calendar_service import google_calendar_service
 from iam.mixins import CollegeScopedQuerysetMixin, IsAuthenticatedAndScoped, ActionRolePermission
 from iam.permissions import RoleBasedPermission, FieldLevelPermission, TenantScopedPermission
@@ -32,7 +32,30 @@ logger = logging.getLogger(__name__)
     create=extend_schema(
         tags=["Followup"],
         summary="Create session with automatic integration",
-        description="Create a new follow-up session with automatic Google Calendar event creation and email invitations"
+        description="Create a new follow-up session with automatic Google Calendar event creation and email invitations. Location and objective should be provided as IDs.",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'college': {'type': 'integer', 'description': 'College ID'},
+                    'student': {'type': 'integer', 'description': 'Student ID'},
+                    'subject': {'type': 'integer', 'description': 'Subject ID'},
+                    'topic': {'type': 'integer', 'description': 'Topic ID'},
+                    'teacher': {'type': 'integer', 'description': 'Teacher ID'},
+                    'location': {'type': 'integer', 'description': 'Location ID (from /api/v1/followup/locations/)'},
+                    'objective': {'type': 'integer', 'description': 'Objective ID (from /api/v1/followup/objectives/)'},
+                    'session_datetime': {'type': 'string', 'format': 'date-time', 'description': 'Session date and time'},
+                    'notes_for_student': {'type': 'string', 'description': 'Notes for the student'},
+                    'status': {'type': 'string', 'enum': ['scheduled', 'completed', 'cancelled', 'rescheduled'], 'default': 'scheduled'},
+                    'google_calendar_event_id': {'type': 'string', 'description': 'Google Calendar event ID'},
+                    'add_to_google_calendar': {'type': 'boolean', 'default': False, 'description': 'Whether to add to Google Calendar'},
+                    'invite_student': {'type': 'boolean', 'default': False, 'description': 'Whether to send email invitation'},
+                    'automatic_reminder': {'type': 'boolean', 'default': False, 'description': 'Whether to send automatic reminder'},
+                    'academic_year': {'type': 'string', 'description': 'Academic year'}
+                },
+                'required': ['college', 'student', 'subject', 'topic', 'teacher', 'session_datetime', 'academic_year']
+            }
+        }
     ),
     update=extend_schema(
         tags=["Followup"],
@@ -55,11 +78,11 @@ logger = logging.getLogger(__name__)
     operation_id="followup_sessions"
 )
 class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
-    queryset = FollowUpSession.objects.select_related("college", "student", "subject", "topic", "teacher").order_by("-session_datetime")
+    queryset = FollowUpSession.objects.select_related("college", "student", "subject", "topic", "teacher", "location", "objective").order_by("-session_datetime")
     serializer_class = FollowUpSessionSerializer
     permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["student_name", "teacher_name", "objective", "location"]
+    search_fields = ["student_name", "teacher_name", "objective_title", "location_name"]
     ordering_fields = ["session_datetime", "created_at"]
     
     def get_queryset(self):
@@ -226,6 +249,92 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
     
+    @action(detail=False, methods=['get'], url_path='session-options')
+    @extend_schema(
+        tags=["Followup"],
+        operation_id="followup_get_session_options",
+        summary="Get session creation options",
+        description="Get available locations and objectives for creating follow-up sessions",
+        responses={
+            200: {
+                'description': 'Available locations and objectives for session creation',
+                'type': 'object',
+                'properties': {
+                    'locations': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'name': {'type': 'string'},
+                                'description': {'type': 'string'},
+                                'is_active': {'type': 'boolean'}
+                            }
+                        }
+                    },
+                    'objectives': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'title': {'type': 'string'},
+                                'description': {'type': 'string'},
+                                'is_active': {'type': 'boolean'}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+    def get_session_options(self, request):
+        """Get available locations and objectives for creating follow-up sessions."""
+        # Get user's college
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return Response(
+                {"error": "Authentication required"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Get user's college
+        college = getattr(user, "college", None)
+        if not college:
+            return Response(
+                {"error": "College not found for user"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get active locations for the college
+        locations = Location.objects.filter(college=college, is_active=True).order_by('name')
+        locations_data = [
+            {
+                'id': location.id,
+                'name': location.name,
+                'description': location.description,
+                'is_active': location.is_active
+            }
+            for location in locations
+        ]
+        
+        # Get active objectives for the college
+        objectives = Objective.objects.filter(college=college, is_active=True).order_by('title')
+        objectives_data = [
+            {
+                'id': objective.id,
+                'title': objective.title,
+                'description': objective.description,
+                'is_active': objective.is_active
+            }
+            for objective in objectives
+        ]
+        
+        return Response({
+            'locations': locations_data,
+            'objectives': objectives_data
+        })
+    
     def perform_create(self, serializer):
         """Override create to handle Google Calendar integration and email invitations."""
         with transaction.atomic():
@@ -367,6 +476,92 @@ class FollowUpSessionViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         }
         return session_data
     
+
+
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Followup"],
+        summary="List locations",
+        description="Get a list of all locations for follow-up sessions"
+    ),
+    retrieve=extend_schema(
+        tags=["Followup"],
+        summary="Get location details",
+        description="Retrieve details of a specific location"
+    ),
+    create=extend_schema(
+        tags=["Followup"],
+        summary="Create location",
+        description="Create a new location for follow-up sessions"
+    ),
+    update=extend_schema(
+        tags=["Followup"],
+        summary="Update location",
+        description="Update a location"
+    ),
+    partial_update=extend_schema(
+        tags=["Followup"],
+        summary="Partially update location",
+        description="Partially update a location"
+    ),
+    destroy=extend_schema(
+        tags=["Followup"],
+        summary="Delete location",
+        description="Delete a location"
+    ),
+)
+class LocationViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
+    """ViewSet for managing locations."""
+    queryset = Location.objects.select_related("college").order_by("name")
+    serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at"]
+
+
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Followup"],
+        summary="List objectives",
+        description="Get a list of all objectives for follow-up sessions"
+    ),
+    retrieve=extend_schema(
+        tags=["Followup"],
+        summary="Get objective details",
+        description="Retrieve details of a specific objective"
+    ),
+    create=extend_schema(
+        tags=["Followup"],
+        summary="Create objective",
+        description="Create a new objective for follow-up sessions"
+    ),
+    update=extend_schema(
+        tags=["Followup"],
+        summary="Update objective",
+        description="Update an objective"
+    ),
+    partial_update=extend_schema(
+        tags=["Followup"],
+        summary="Partially update objective",
+        description="Partially update an objective"
+    ),
+    destroy=extend_schema(
+        tags=["Followup"],
+        summary="Delete objective",
+        description="Delete an objective"
+    ),
+)
+class ObjectiveViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
+    """ViewSet for managing objectives."""
+    queryset = Objective.objects.select_related("college").order_by("title")
+    serializer_class = ObjectiveSerializer
+    permission_classes = [IsAuthenticatedAndScoped, RoleBasedPermission, TenantScopedPermission, FieldLevelPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["is_active"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["title", "created_at"]
 
 
 def schedule_session_view(request):
