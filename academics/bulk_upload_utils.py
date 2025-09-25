@@ -284,15 +284,17 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                                 continue
                             
                             # Create enrollment for the student in the target class
+                            print(f"DEBUG: Adding existing student {existing_student.id} to class {self.target_class.id}")
                             StudentClassEnrollment.objects.create(
                                 student=existing_student,
                                 class_ref=self.target_class
                             )
                             
                             # Also update the primary class_ref for backward compatibility
-                            if not existing_student.class_ref:
-                                existing_student.class_ref = self.target_class
-                                existing_student.save()
+                            # Always update class_ref to the new class when adding to a new class
+                            print(f"DEBUG: Updating existing student {existing_student.id} class_ref from {existing_student.class_ref.id if existing_student.class_ref else 'None'} to {self.target_class.id}")
+                            existing_student.class_ref = self.target_class
+                            existing_student.save()
                             
                             self.existing_students_added += 1
                             self.success_count += 1
@@ -332,6 +334,7 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                             'class_ref': self.target_class,  # Assign to target class if provided
                             'department': department,
                         }
+                        print(f"DEBUG: Creating student with class_ref: {self.target_class.id if self.target_class else 'None'}")
                         
                         # Add optional fields only if they exist and are not null
                         if 'student_number' in row and pd.notna(row['student_number']) and str(row['student_number']).strip():
@@ -394,6 +397,7 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                         
                         # Create enrollment for the new student in the target class
                         if self.target_class:
+                            print(f"DEBUG: Creating enrollment for student {new_student.id} in class {self.target_class.id}")
                             StudentClassEnrollment.objects.create(
                                 student=new_student,
                                 class_ref=self.target_class

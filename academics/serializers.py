@@ -15,6 +15,8 @@ class ClassSerializer(serializers.ModelSerializer):
         allow_empty_file=False,
         use_url=False
     )
+    # Add class overall grade field
+    class_overall_grade = serializers.SerializerMethodField()
     
     class Meta:
         model = Class
@@ -31,6 +33,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "room_number",
             "max_students",
             "student_file",  # File upload field
+            "class_overall_grade",  # Class overall grade field
             "metadata",
             "created_at",
             "updated_at",
@@ -67,6 +70,7 @@ class ClassSerializer(serializers.ModelSerializer):
         
         # Create the class
         class_instance = Class.objects.create(**validated_data)
+        print(f"DEBUG: Created class with ID: {class_instance.id}, Name: {class_instance.name}")
         
         # Handle student file upload if provided
         if student_file:
@@ -74,6 +78,7 @@ class ClassSerializer(serializers.ModelSerializer):
                 from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
                 
                 # Process student bulk upload with target class
+                print(f"DEBUG: Processing student upload for class ID: {class_instance.id}")
                 result = process_student_bulk_upload(student_file, college, user, target_class=class_instance)
                 
                 # Store upload results in class metadata for reference
@@ -176,11 +181,54 @@ class ClassSerializer(serializers.ModelSerializer):
         if student_topic_progress_assignments:
             StudentTopicProgress.objects.bulk_create(student_topic_progress_assignments)
 
+    def get_class_overall_grade(self, obj: Class) -> float:
+        """Calculate overall class grade from all students' grades in this class."""
+        # Get all students enrolled in this class
+        enrollments = StudentClassEnrollment.objects.filter(
+            class_ref=obj,
+            is_active=True
+        ).select_related('student')
+        
+        if not enrollments.exists():
+            return 0.0
+        
+        # Calculate overall grade for each student and then average them
+        student_grades = []
+        for enrollment in enrollments:
+            student = enrollment.student
+            
+            # Get all topic progress records for this student in this class
+            student_topic_progress = StudentTopicProgress.objects.filter(
+                student=student,
+                class_ref=obj,
+                is_active=True
+            )
+            
+            if student_topic_progress.exists():
+                # Calculate average grade from all topic grades for this student (including 0 grades)
+                grades = [progress.grade for progress in student_topic_progress]
+                if grades:
+                    student_average = sum(grades) / len(grades)
+                    student_grades.append(student_average)
+                else:
+                    # If no grades exist, treat as 0
+                    student_grades.append(0.0)
+            else:
+                # If no topic progress exists, treat as 0
+                student_grades.append(0.0)
+        
+        # Calculate class overall grade
+        if student_grades:
+            return round(sum(student_grades) / len(student_grades), 2)
+        else:
+            return 0.0
+
 
 class StudentSerializer(serializers.ModelSerializer):
     # Custom fields to display subjects and topics based on class
     subjects = serializers.SerializerMethodField()
     topics = serializers.SerializerMethodField()
+    student_grade = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
@@ -208,6 +256,7 @@ class StudentSerializer(serializers.ModelSerializer):
             "metadata",
             "subjects",
             "topics",
+            "student_grade",
             "created_at",
             "updated_at",
         ]
@@ -263,7 +312,8 @@ class StudentSerializer(serializers.ModelSerializer):
             student=obj,
             class_ref=obj.class_ref,
             is_active=True
-        ).select_related('topic', 'topic__subject')
+        ).select_related('topic', 'topic__subject').order_by('topic__id')
+        
         
         return [
             {
@@ -288,6 +338,29 @@ class StudentSerializer(serializers.ModelSerializer):
             }
             for progress in student_topic_progress
         ]
+
+    def get_student_grade(self, obj: Student) -> float:
+        """Calculate overall student grade from all topic grades."""
+        if not obj.class_ref:
+            return 0.0
+        
+        # Get all topic progress records for this student
+        from .models import StudentTopicProgress
+        student_topic_progress = StudentTopicProgress.objects.filter(
+            student=obj,
+            class_ref=obj.class_ref,
+            is_active=True
+        )
+        
+        if not student_topic_progress.exists():
+            return 0.0
+        
+        # Calculate average grade from all topic grades
+        grades = [progress.grade for progress in student_topic_progress if progress.grade > 0]
+        if grades:
+            return round(sum(grades) / len(grades), 2)
+        else:
+            return 0.0
 
     def _allowed_college_ids(self, user):
         ids = []

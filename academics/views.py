@@ -223,6 +223,10 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                             }
                                         }
                                     }
+                                },
+                                'student_grade': {
+                                    'type': 'number',
+                                    'description': 'Overall student grade calculated from all topic grades'
                                 }
                             }
                         }
@@ -233,6 +237,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                             'id': {'type': 'integer'},
                             'name': {'type': 'string'},
                             'academic_year': {'type': 'string'},
+                            'class_overall_grade': {'type': 'number', 'description': 'Overall class grade calculated from all students grades'},
                             'teacher': {
                                 'type': 'object',
                                 'nullable': True,
@@ -284,6 +289,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 "id": class_obj.id,
                 "name": class_obj.name,
                 "academic_year": class_obj.academic_year,
+                "class_overall_grade": self._calculate_class_overall_grade(class_obj),
                 "teacher": {
                     "id": class_obj.teacher.id,
                     "first_name": class_obj.teacher.first_name,
@@ -307,6 +313,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 "id": class_obj.id,
                 "name": class_obj.name,
                 "academic_year": class_obj.academic_year,
+                "class_overall_grade": self._calculate_class_overall_grade(class_obj),
                 "teacher": {
                     "id": class_obj.teacher.id,
                     "first_name": class_obj.teacher.first_name,
@@ -340,7 +347,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         ],
         responses={
             200: {
-                'description': 'Student details with subjects and teacher info',
+                'description': 'Student details with subjects, teacher info, and overall grades',
                 'type': 'object',
                 'properties': {
                     'student': {
@@ -391,6 +398,10 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                         }
                                     }
                                 }
+                            },
+                            'student_grade': {
+                                'type': 'number',
+                                'description': 'Overall student grade calculated from all topic grades'
                             }
                         }
                     },
@@ -400,6 +411,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                             'id': {'type': 'integer'},
                             'name': {'type': 'string'},
                             'academic_year': {'type': 'string'},
+                            'class_overall_grade': {'type': 'number', 'description': 'Overall class grade calculated from all students grades'},
                             'teacher': {
                                 'type': 'object',
                                 'properties': {
@@ -460,6 +472,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 "id": class_obj.id,
                 "name": class_obj.name,
                 "academic_year": class_obj.academic_year,
+                "class_overall_grade": self._calculate_class_overall_grade(class_obj),
                 "teacher": {
                     "id": class_obj.teacher.id,
                     "first_name": class_obj.teacher.first_name,
@@ -469,6 +482,48 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 } if class_obj.teacher else None
             }
         })
+
+    def _calculate_class_overall_grade(self, class_obj):
+        """Calculate overall class grade from all students' grades in this class."""
+        # Get all students enrolled in this class
+        enrollments = StudentClassEnrollment.objects.filter(
+            class_ref=class_obj,
+            is_active=True
+        ).select_related('student')
+        
+        if not enrollments.exists():
+            return 0.0
+        
+        # Calculate overall grade for each student and then average them
+        student_grades = []
+        for enrollment in enrollments:
+            student = enrollment.student
+            
+            # Get all topic progress records for this student in this class
+            student_topic_progress = StudentTopicProgress.objects.filter(
+                student=student,
+                class_ref=class_obj,
+                is_active=True
+            )
+            
+            if student_topic_progress.exists():
+                # Calculate average grade from all topic grades for this student (including 0 grades)
+                grades = [progress.grade for progress in student_topic_progress]
+                if grades:
+                    student_average = sum(grades) / len(grades)
+                    student_grades.append(student_average)
+                else:
+                    # If no grades exist, treat as 0
+                    student_grades.append(0.0)
+            else:
+                # If no topic progress exists, treat as 0
+                student_grades.append(0.0)
+        
+        # Calculate class overall grade
+        if student_grades:
+            return round(sum(student_grades) / len(student_grades), 2)
+        else:
+            return 0.0
 
 
 
@@ -807,6 +862,18 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                                     'qns3_checked': updated_progress.qns3_checked,
                                     'qns4_checked': updated_progress.qns4_checked
                                 })
+                            else:
+                                # If no update occurred, still include the current data
+                                subject_topics.append({
+                                    'id': topic.id,
+                                    'status': student_topic_progress.status,
+                                    'grade': student_topic_progress.grade,
+                                    'comments_and_recommendations': student_topic_progress.comments_and_recommendations,
+                                    'qns1_checked': student_topic_progress.qns1_checked,
+                                    'qns2_checked': student_topic_progress.qns2_checked,
+                                    'qns3_checked': student_topic_progress.qns3_checked,
+                                    'qns4_checked': student_topic_progress.qns4_checked
+                                })
                                 
                         except Topic.DoesNotExist:
                             continue
@@ -832,6 +899,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
     def _update_student_topic_progress(self, student_topic_progress, topic_data, user):
         """Update student-specific topic progress with role-based validation."""
         user_role = getattr(user, 'role', None)
+        
         
         if user_role in ['admin', 'college_admin']:
             # Admin and college_admin can update all fields
@@ -869,16 +937,18 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                 setattr(student_topic_progress, field, topic_data[field])
                 updated = True
         
-        if updated:
-            # Update status based on grade (same logic as Topic model)
-            grade = topic_data.get('grade', student_topic_progress.grade)
+        # Always update status based on grade if grade is provided
+        if 'grade' in topic_data:
+            grade = topic_data['grade']
             if grade >= 7:
                 student_topic_progress.status = 'validated'
             elif grade > 0:
                 student_topic_progress.status = 'in_progress'
             else:
                 student_topic_progress.status = 'not_started'
-            
+            updated = True
+        
+        if updated:
             student_topic_progress.save()
             return student_topic_progress
         
