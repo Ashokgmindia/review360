@@ -24,16 +24,17 @@ def create_users_for_existing_students(apps, schema_editor):
         
         # Check if user already exists
         if not User.objects.filter(username=username).exists():
-            # Create the user
-            user = User.objects.create_user(
+            # Create the user directly (not using create_user method in migrations)
+            user = User.objects.create(
                 username=username,
                 email=email,
-                password='temp_password_123',  # Temporary password
-                role=User.Role.STUDENT,
+                password='pbkdf2_sha256$600000$temp$temp',  # Temporary password hash
+                role='student',
                 college=student.college,
                 first_name=student.first_name,
                 last_name=student.last_name,
                 phone_number=student.phone_number,
+                is_active=True,
             )
             
             # Add user to college's member users

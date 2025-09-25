@@ -6,7 +6,7 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress
+from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress, StudentClassEnrollment
 from .serializers import (
     ClassSerializer,
     StudentSerializer,
@@ -260,17 +260,18 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Get students in the class
-        students = Student.objects.filter(
+        # Get students enrolled in the class using the new enrollment model
+        enrollments = StudentClassEnrollment.objects.filter(
             class_ref=class_obj,
             is_active=True
-        ).select_related('class_ref', 'department', 'college')
+        ).select_related('student', 'student__department', 'student__college')
+        students = [enrollment.student for enrollment in enrollments]
         
         # Apply any additional filtering based on user permissions
         user = getattr(request, "user", None)
         if getattr(user, "role", None) == "teacher":
             # Teachers can only see students from their classes
-            students = students.filter(class_ref__teacher__user_id=user.id)
+            students = [student for student in students if class_obj.teacher and class_obj.teacher.user_id == user.id]
         
         # Use DRF's pagination
         page = self.paginate_queryset(students)
@@ -298,7 +299,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(students, many=True)
         
         return Response({
-            "count": students.count(),
+            "count": len(students),
             "next": None,
             "previous": None,
             "results": serializer.data,
@@ -426,13 +427,15 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Check if student is enrolled in this class
         try:
-            student = Student.objects.get(
-                id=student_id,
+            enrollment = StudentClassEnrollment.objects.get(
+                student_id=student_id,
                 class_ref=class_obj,
                 is_active=True
             )
-        except Student.DoesNotExist:
+            student = enrollment.student
+        except StudentClassEnrollment.DoesNotExist:
             return Response(
                 {"error": "Student not found in this class"}, 
                 status=status.HTTP_404_NOT_FOUND
@@ -675,13 +678,15 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Check if student is enrolled in this class
         try:
-            student = Student.objects.get(
-                id=student_id,
+            enrollment = StudentClassEnrollment.objects.get(
+                student_id=student_id,
                 class_ref=class_obj,
                 is_active=True
             )
-        except Student.DoesNotExist:
+            student = enrollment.student
+        except StudentClassEnrollment.DoesNotExist:
             return Response(
                 {"error": "Student not found in this class"}, 
                 status=status.HTTP_404_NOT_FOUND

@@ -3,7 +3,7 @@ from django.db import transaction
 from iam.models import User
 from iam.permissions import FieldLevelPermission
 from typing import List, Dict, Any, Optional
-from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress
+from .models import Class, Student, Department, Teacher, StudentSubject, StudentTopicProgress, StudentClassEnrollment
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -73,39 +73,30 @@ class ClassSerializer(serializers.ModelSerializer):
             try:
                 from .bulk_upload_utils import process_student_bulk_upload, BulkUploadError
                 
-                # Process student bulk upload
-                result = process_student_bulk_upload(student_file, college, user)
+                # Process student bulk upload with target class
+                result = process_student_bulk_upload(student_file, college, user, target_class=class_instance)
                 
                 # Store upload results in class metadata for reference
                 class_instance.metadata = {
                     'student_upload_result': {
                         'success_count': result['success_count'],
+                        'new_students_created': result.get('new_students_created', 0),
+                        'existing_students_added': result.get('existing_students_added', 0),
                         'error_count': result['error_count'],
                         'errors': result['errors']
                     }
                 }
                 class_instance.save()
                 
-                # Assign successfully created students to this class
-                if result['success_count'] > 0:
-                    # Get the students created in this batch (most recent ones without class assignment)
-                    students_to_assign = Student.objects.filter(
-                        college=college,
-                        class_ref__isnull=True
-                    ).order_by('-created_at')[:result['success_count']]
-                    
-                    # Assign students to this class
-                    for student in students_to_assign:
-                        student.class_ref = class_instance
-                        student.save()
-                    
-                    # Auto-assign teacher's subjects to students if teacher is assigned
-                    if class_instance.teacher:
-                        self._assign_teacher_subjects_to_students(class_instance, students_to_assign)
-                    
-                    # Update metadata with assignment info
-                    class_instance.metadata['student_upload_result']['assigned_to_class'] = students_to_assign.count()
-                    class_instance.save()
+                # Auto-assign teacher's subjects to students if teacher is assigned
+                if class_instance.teacher and result['success_count'] > 0:
+                    # Get all students enrolled in this class (both new and existing)
+                    enrollments = StudentClassEnrollment.objects.filter(
+                        class_ref=class_instance,
+                        is_active=True
+                    ).select_related('student')
+                    students_in_class = [enrollment.student for enrollment in enrollments]
+                    self._assign_teacher_subjects_to_students(class_instance, students_in_class)
                 
             except BulkUploadError as e:
                 # If student upload fails, still create the class but add error to metadata

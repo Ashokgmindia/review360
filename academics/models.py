@@ -201,6 +201,27 @@ class StudentSubject(models.Model):
         return f"{self.student} - {self.subject} ({self.teacher})"
 
 
+class StudentClassEnrollment(models.Model):
+    """Model to track student enrollments in multiple classes."""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="class_enrollments")
+    class_ref = models.ForeignKey(Class, on_delete=models.CASCADE, related_name="student_enrollments")
+    enrolled_at = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("student", "class_ref")
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['class_ref', 'is_active']),
+            models.Index(fields=['enrolled_at']),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.student} - {self.class_ref}"
+
+
 class StudentTopicProgress(models.Model):
     """Model to track individual student progress on specific topics."""
     STATUS_CHOICES = [
