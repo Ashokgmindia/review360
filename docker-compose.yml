@@ -18,7 +18,7 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,review360-review360-web.i2bzua.easypanel.host}
       POSTGRES_DB: ${POSTGRES_DB:-review360}
       POSTGRES_USER: ${POSTGRES_USER:-review360}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-review360}
@@ -50,7 +50,7 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,review360-review360-web.i2bzua.easypanel.host}
       POSTGRES_DB: ${POSTGRES_DB:-review360}
       POSTGRES_USER: ${POSTGRES_USER:-review360}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-review360}
@@ -70,7 +70,7 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,review360-review360-web.i2bzua.easypanel.host}
       POSTGRES_DB: ${POSTGRES_DB:-review360}
       POSTGRES_USER: ${POSTGRES_USER:-review360}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-review360}

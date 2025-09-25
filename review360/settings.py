@@ -15,7 +15,7 @@ if SECRET_KEY is None:
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = [
     h
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,review360-review360-web.i2bzua.easypanel.host").split(",")
     if h
 ]
 
@@ -146,12 +146,17 @@ _production_origins = [
 
 CORS_ALLOWED_ORIGINS = _default_origins + _production_origins
 
+# CSRF Trusted Origins (required for Django 4.0+)
+# This is separate from CORS and is required for CSRF protection
+CSRF_TRUSTED_ORIGINS = _default_origins + _production_origins
+
 # Regex patterns for dynamic origins (useful for development)
 CORS_ALLOWED_ORIGINS_REGEXES = [
     r"^http://localhost:\d+$",  # Allow any localhost port
     r"^http://127\.0\.0\.1:\d+$",  # Allow any 127.0.0.1 port
     r"^https://.*\.duckdns\.org:\d+$",  # Allow https duckdns subdomains with ports
     r"^http://.*\.duckdns\.org:\d+$",  # Allow http duckdns subdomains with ports
+    r"^https://.*\.easypanel\.host$",  # Allow easypanel subdomains
 ]
 
 # Additional CORS headers
@@ -206,13 +211,13 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True  # For Transport Layer Security
-EMAIL_HOST_USER = "gmi.tn.dev.akmarimuthu@gmail.com"  # Your full Gmail address
-EMAIL_HOST_PASSWORD = "ragmvkoqvlvvzalr"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "gmi.tn.dev.akmarimuthu@gmail.com")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "ragmvkoqvlvvzalr")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Google Calendar Integration Settings
-GOOGLE_CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, 'google_client_secrets.json')
-GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'google_credentials.json')
+GOOGLE_CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, os.environ.get('GOOGLE_CLIENT_SECRETS_FILE', 'google_client_secrets.json'))
+GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, os.environ.get('GOOGLE_CREDENTIALS_FILE', 'google_credentials.json'))
 
 # Celery Configuration for Background Tasks
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
