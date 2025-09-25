@@ -266,6 +266,7 @@ class ClassAdmin(admin.ModelAdmin):
 class StudentAdmin(admin.ModelAdmin):
     list_display = ("first_name", "last_name", "student_number", "college", "class_ref", "department", "academic_year", "is_active")
     search_fields = ("first_name", "last_name", "student_number", "email")
+    exclude = ("user",)  # Hide the user field from the form
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -316,11 +317,53 @@ class StudentAdmin(admin.ModelAdmin):
         return form
 
     def save_model(self, request, obj, form, change):
-        # Auto-assign college for college admins
-        if not change and getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
-            if request.user.college_id and not obj.college_id:
-                obj.college = request.user.college
-        super().save_model(request, obj, form, change)
+        from django.db import transaction
+        
+        if not change:  # Creating new student
+            # Auto-assign college for college admins
+            if getattr(request.user, "role", None) == User.Role.COLLEGE_ADMIN:
+                if request.user.college_id and not obj.college_id:
+                    obj.college = request.user.college
+            
+            # Create a new user account for the student
+            with transaction.atomic():
+                # Generate username from email or first_name + last_name
+                if obj.email:
+                    username = obj.email
+                else:
+                    username = f"{obj.first_name.lower()}.{obj.last_name.lower()}"
+                
+                # Check if user already exists
+                if User.objects.filter(email=obj.email).exists() if obj.email else User.objects.filter(username=username).exists():
+                    if obj.email:
+                        raise ValueError(f"A user with email {obj.email} already exists.")
+                    else:
+                        raise ValueError(f"A user with username {username} already exists.")
+                
+                # Create the user
+                user = User.objects.create_user(
+                    username=username,
+                    email=obj.email or f"{username}@student.local",  # Default email if none provided
+                    password='temp_password_123',  # Temporary password
+                    role=User.Role.STUDENT,
+                    college=obj.college,
+                    first_name=obj.first_name,
+                    last_name=obj.last_name,
+                    phone_number=obj.phone_number,
+                )
+                
+                # Add user to college's member users
+                if obj.college:
+                    user.colleges.add(obj.college)
+                
+                # Link the student to the user
+                obj.user = user
+                
+                # Save the student
+                super().save_model(request, obj, form, change)
+        else:
+            # Updating existing student
+            super().save_model(request, obj, form, change)
 
 
 
