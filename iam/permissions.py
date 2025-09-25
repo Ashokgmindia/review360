@@ -197,6 +197,9 @@ class RoleBasedPermission(BasePermission):
             'update': 'update',
             'partial_update': 'update',
             'destroy': 'delete',
+            # Custom actions that should be treated as read operations
+            'get_students_by_class': 'read',
+            'get_student_by_class_and_id': 'read',
         }
         return action_mapping.get(getattr(view, 'action', None), 'read')
 
