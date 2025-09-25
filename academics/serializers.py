@@ -560,12 +560,7 @@ class StudentSubjectUpdateSerializer(serializers.Serializer):
             
             # Role-based validation for topic fields
             if user_role == 'teacher':
-                # Teachers can only update validation fields, not question text
-                restricted_fields = ['qns1_text', 'qns2_text', 'qns3_text', 'qns4_text']
-                for field in restricted_fields:
-                    if field in topic_data:
-                        raise serializers.ValidationError(f"Teachers cannot modify {field}. Only college admins can update question text.")
-                
+                # Teachers can now update all fields including question text
                 # Validate that at least 2 questions are checked for teachers
                 checked_count = sum([
                     topic_data.get('qns1_checked', False),

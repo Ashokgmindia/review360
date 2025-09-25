@@ -564,13 +564,13 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                             'status': {'type': 'string', 'enum': ['not_started', 'in_progress', 'validated'], 'description': 'Topic status', 'example': 'in_progress'},
                                             'grade': {'type': 'integer', 'minimum': 0, 'maximum': 10, 'description': 'Grade for the topic', 'example': 5},
                                             'comments_and_recommendations': {'type': 'string', 'description': 'Comments about the topic', 'example': 'Good progress'},
-                                            'qns1_text': {'type': 'string', 'description': 'Question 1 text (admin only)', 'example': 'Question 1 text'},
+                                            'qns1_text': {'type': 'string', 'description': 'Question 1 text', 'example': 'Question 1 text'},
                                             'qns1_checked': {'type': 'boolean', 'description': 'Whether question 1 is checked', 'example': True},
-                                            'qns2_text': {'type': 'string', 'description': 'Question 2 text (admin only)', 'example': 'Question 2 text'},
+                                            'qns2_text': {'type': 'string', 'description': 'Question 2 text', 'example': 'Question 2 text'},
                                             'qns2_checked': {'type': 'boolean', 'description': 'Whether question 2 is checked', 'example': True},
-                                            'qns3_text': {'type': 'string', 'description': 'Question 3 text (admin only)', 'example': 'Question 3 text'},
+                                            'qns3_text': {'type': 'string', 'description': 'Question 3 text', 'example': 'Question 3 text'},
                                             'qns3_checked': {'type': 'boolean', 'description': 'Whether question 3 is checked', 'example': False},
-                                            'qns4_text': {'type': 'string', 'description': 'Question 4 text (admin only)', 'example': 'Question 4 text'},
+                                            'qns4_text': {'type': 'string', 'description': 'Question 4 text', 'example': 'Question 4 text'},
                                             'qns4_checked': {'type': 'boolean', 'description': 'Whether question 4 is checked', 'example': False}
                                         }
                                     }
@@ -591,13 +591,13 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                     'status': 'in_progress',
                                     'grade': 5,
                                     'comments_and_recommendations': 'Good progress',
-                                    'qns1_text': 'Question 1 text (admin only)',
+                                    'qns1_text': 'Question 1 text',
                                     'qns1_checked': True,
-                                    'qns2_text': 'Question 2 text (admin only)',
+                                    'qns2_text': 'Question 2 text',
                                     'qns2_checked': True,
-                                    'qns3_text': 'Question 3 text (admin only)',
+                                    'qns3_text': 'Question 3 text',
                                     'qns3_checked': False,
-                                    'qns4_text': 'Question 4 text (admin only)',
+                                    'qns4_text': 'Question 4 text',
                                     'qns4_checked': False
                                 }
                             ]
@@ -836,10 +836,11 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                 'qns3_text', 'qns3_checked', 'qns4_text', 'qns4_checked'
             ]
         elif user_role == 'teacher':
-            # Teachers can only update validation fields
+            # Teachers can now update all fields including question text
             update_fields = [
                 'status', 'grade', 'comments_and_recommendations',
-                'qns1_checked', 'qns2_checked', 'qns3_checked', 'qns4_checked'
+                'qns1_text', 'qns1_checked', 'qns2_text', 'qns2_checked',
+                'qns3_text', 'qns3_checked', 'qns4_text', 'qns4_checked'
             ]
             
             # Validate that at least 2 questions are checked (same as learning API)
