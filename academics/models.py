@@ -242,7 +242,9 @@ class StudentTopicProgress(models.Model):
         default='not_started',
         help_text="Student's current status on this topic"
     )
-    grade = models.PositiveIntegerField(
+    grade = models.DecimalField(
+        max_digits=3, 
+        decimal_places=1, 
         default=0, 
         help_text="Student's grade for this topic (0-10 scale)"
     )
@@ -261,6 +263,35 @@ class StudentTopicProgress(models.Model):
     qns3_checked = models.BooleanField(default=False, help_text="Question 3 checkbox")
     qns4_text = models.TextField(blank=True, default="", help_text="Question 4 text")
     qns4_checked = models.BooleanField(default=False, help_text="Question 4 checkbox")
+    
+    # Draft fields for temporary data
+    draft_status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        blank=True, 
+        null=True,
+        help_text="Draft status (temporary)"
+    )
+    draft_grade = models.DecimalField(
+        max_digits=3, 
+        decimal_places=1, 
+        blank=True, 
+        null=True,
+        help_text="Draft grade (temporary)"
+    )
+    draft_comments_and_recommendations = models.TextField(
+        blank=True, 
+        default="", 
+        help_text="Draft comments (temporary)"
+    )
+    draft_qns1_text = models.TextField(blank=True, default="", help_text="Draft Question 1 text")
+    draft_qns1_checked = models.BooleanField(default=False, help_text="Draft Question 1 checkbox")
+    draft_qns2_text = models.TextField(blank=True, default="", help_text="Draft Question 2 text")
+    draft_qns2_checked = models.BooleanField(default=False, help_text="Draft Question 2 checkbox")
+    draft_qns3_text = models.TextField(blank=True, default="", help_text="Draft Question 3 text")
+    draft_qns3_checked = models.BooleanField(default=False, help_text="Draft Question 3 checkbox")
+    draft_qns4_text = models.TextField(blank=True, default="", help_text="Draft Question 4 text")
+    draft_qns4_checked = models.BooleanField(default=False, help_text="Draft Question 4 checkbox")
     
     # System Fields
     is_active = models.BooleanField(default=True)
@@ -283,13 +314,64 @@ class StudentTopicProgress(models.Model):
     def save(self, *args, **kwargs):
         """Override save to automatically update status based on grade."""
         # Update status based on grade
-        if self.grade >= 7:
+        from decimal import Decimal
+        if self.grade >= Decimal('7.0'):
             self.status = 'validated'
-        elif self.grade > 0:
+        elif self.grade > Decimal('0.0'):
             self.status = 'in_progress'
         else:
             self.status = 'not_started'
         super().save(*args, **kwargs)
+    
+    def promote_draft_to_final(self):
+        """Promote draft data to final data."""
+        if self.draft_status is not None:
+            self.status = self.draft_status
+        if self.draft_grade is not None:
+            self.grade = self.draft_grade
+        if self.draft_comments_and_recommendations is not None:
+            self.comments_and_recommendations = self.draft_comments_and_recommendations
+        if self.draft_qns1_text is not None:
+            self.qns1_text = self.draft_qns1_text
+        if self.draft_qns1_checked is not None:
+            self.qns1_checked = self.draft_qns1_checked
+        if self.draft_qns2_text is not None:
+            self.qns2_text = self.draft_qns2_text
+        if self.draft_qns2_checked is not None:
+            self.qns2_checked = self.draft_qns2_checked
+        if self.draft_qns3_text is not None:
+            self.qns3_text = self.draft_qns3_text
+        if self.draft_qns3_checked is not None:
+            self.qns3_checked = self.draft_qns3_checked
+        if self.draft_qns4_text is not None:
+            self.qns4_text = self.draft_qns4_text
+        if self.draft_qns4_checked is not None:
+            self.qns4_checked = self.draft_qns4_checked
+        
+        # Clear draft fields
+        self.draft_status = None
+        self.draft_grade = None
+        self.draft_comments_and_recommendations = ""
+        self.draft_qns1_text = ""
+        self.draft_qns1_checked = False
+        self.draft_qns2_text = ""
+        self.draft_qns2_checked = False
+        self.draft_qns3_text = ""
+        self.draft_qns3_checked = False
+        self.draft_qns4_text = ""
+        self.draft_qns4_checked = False
+        
+        self.save()
+    
+    def has_draft_data(self):
+        """Check if there are any draft changes."""
+        return (self.draft_status is not None or 
+                self.draft_grade is not None or 
+                self.draft_comments_and_recommendations != "" or
+                self.draft_qns1_text != "" or self.draft_qns1_checked != False or
+                self.draft_qns2_text != "" or self.draft_qns2_checked != False or
+                self.draft_qns3_text != "" or self.draft_qns3_checked != False or
+                self.draft_qns4_text != "" or self.draft_qns4_checked != False)
 
     
     

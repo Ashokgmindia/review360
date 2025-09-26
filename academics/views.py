@@ -332,7 +332,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                             'id': {'type': 'integer'},
                                             'name': {'type': 'string'},
                                             'status': {'type': 'string'},
-                                            'grade': {'type': 'integer'},
+                                            'grade': {'type': 'number'},
                                             'subject': {
                                                 'type': 'object',
                                                 'properties': {
@@ -736,6 +736,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                 'type': 'object',
                 'required': ['subjects'],
                 'properties': {
+                    'is_draft': {'type': 'boolean', 'description': 'Whether this is a draft save (true) or final save (false). Draft saves are temporary and not shown on the main views until validated.', 'default': False, 'example': False},
                     'subjects': {
                         'type': 'array',
                         'items': {
@@ -754,7 +755,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                         'properties': {
                                             'id': {'type': 'integer', 'description': 'ID of the topic', 'example': 1},
                                             'status': {'type': 'string', 'enum': ['not_started', 'in_progress', 'validated'], 'description': 'Topic status', 'example': 'in_progress'},
-                                            'grade': {'type': 'integer', 'minimum': 0, 'maximum': 10, 'description': 'Grade for the topic', 'example': 5},
+                                            'grade': {'type': 'number', 'minimum': 0, 'maximum': 10, 'description': 'Grade for the topic', 'example': 8.5},
                                             'comments_and_recommendations': {'type': 'string', 'description': 'Comments about the topic', 'example': 'Good progress'},
                                             'qns1_text': {'type': 'string', 'description': 'Question 1 text', 'example': 'Question 1 text'},
                                             'qns1_checked': {'type': 'boolean', 'description': 'Whether question 1 is checked', 'example': True},
@@ -772,6 +773,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                     }
                 },
                 'example': {
+                    'is_draft': False,
                     'subjects': [
                         {
                             'subject_id': 1,
@@ -781,7 +783,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                 {
                                     'id': 1,
                                     'status': 'in_progress',
-                                    'grade': 5,
+                                    'grade': 8.5,
                                     'comments_and_recommendations': 'Good progress',
                                     'qns1_text': 'Question 1 text',
                                     'qns1_checked': True,
@@ -822,7 +824,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                                     'properties': {
                                                         'id': {'type': 'integer', 'example': 1},
                                                         'status': {'type': 'string', 'example': 'in_progress'},
-                                                        'grade': {'type': 'integer', 'example': 5},
+                                                        'grade': {'type': 'number', 'example': 8.5},
                                                         'comments_and_recommendations': {'type': 'string', 'example': 'Good progress'},
                                                         'qns1_checked': {'type': 'boolean', 'example': True},
                                                         'qns2_checked': {'type': 'boolean', 'example': True},
@@ -900,6 +902,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
             )
         
         subjects_data = serializer.validated_data.get('subjects', [])
+        is_draft = serializer.validated_data.get('is_draft', False)
         
         response_subjects = []
         
@@ -984,30 +987,14 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                                 )
                             
                             # Apply role-based validation and updates to student-specific progress
-                            updated_progress = self._update_student_topic_progress(student_topic_progress, topic_data, user)
-                            if updated_progress:
-                                subject_topics.append({
-                                    'id': topic.id,  # Return the original topic ID for API consistency
-                                    'status': updated_progress.status,
-                                    'grade': updated_progress.grade,
-                                    'comments_and_recommendations': updated_progress.comments_and_recommendations,
-                                    'qns1_checked': updated_progress.qns1_checked,
-                                    'qns2_checked': updated_progress.qns2_checked,
-                                    'qns3_checked': updated_progress.qns3_checked,
-                                    'qns4_checked': updated_progress.qns4_checked
-                                })
-                            else:
-                                # If no update occurred, still include the current data
-                                subject_topics.append({
-                                    'id': topic.id,
-                                    'status': student_topic_progress.status,
-                                    'grade': student_topic_progress.grade,
-                                    'comments_and_recommendations': student_topic_progress.comments_and_recommendations,
-                                    'qns1_checked': student_topic_progress.qns1_checked,
-                                    'qns2_checked': student_topic_progress.qns2_checked,
-                                    'qns3_checked': student_topic_progress.qns3_checked,
-                                    'qns4_checked': student_topic_progress.qns4_checked
-                                })
+                            updated_progress = self._update_student_topic_progress(student_topic_progress, topic_data, user, is_draft)
+                            
+                            # Get display data (shows draft data when viewing in draft mode, final data when final)
+                            display_data = self._get_display_data(student_topic_progress, is_draft)
+                            subject_topics.append({
+                                'id': topic.id,
+                                **display_data
+                            })
                                 
                         except Topic.DoesNotExist:
                             continue
@@ -1030,7 +1017,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    def _update_student_topic_progress(self, student_topic_progress, topic_data, user):
+    def _update_student_topic_progress(self, student_topic_progress, topic_data, user, is_draft=False):
         """Update student-specific topic progress with role-based validation."""
         user_role = getattr(user, 'role', None)
         
@@ -1064,29 +1051,105 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
             # Other roles cannot update topics
             return None
         
-        # Update only allowed fields
-        updated = False
-        for field in update_fields:
-            if field in topic_data:
-                setattr(student_topic_progress, field, topic_data[field])
+        # Determine if we should save to draft fields or final fields
+        if is_draft:
+            # Save to draft fields
+            updated = False
+            
+            if 'status' in topic_data:
+                student_topic_progress.draft_status = topic_data['status']
                 updated = True
-        
-        # Always update status based on grade if grade is provided
-        if 'grade' in topic_data:
-            grade = topic_data['grade']
-            if grade >= 7:
-                student_topic_progress.status = 'validated'
-            elif grade > 0:
-                student_topic_progress.status = 'in_progress'
-            else:
-                student_topic_progress.status = 'not_started'
-            updated = True
-        
-        if updated:
-            student_topic_progress.save()
-            return student_topic_progress
+            if 'grade' in topic_data:
+                student_topic_progress.draft_grade = topic_data['grade']
+                updated = True
+            if 'comments_and_recommendations' in topic_data:
+                student_topic_progress.draft_comments_and_recommendations = topic_data['comments_and_recommendations']
+                updated = True
+            if 'qns1_text' in topic_data:
+                student_topic_progress.draft_qns1_text = topic_data['qns1_text']
+                updated = True
+            if 'qns1_checked' in topic_data:
+                student_topic_progress.draft_qns1_checked = topic_data['qns1_checked']
+                updated = True
+            if 'qns2_text' in topic_data:
+                student_topic_progress.draft_qns2_text = topic_data['qns2_text']
+                updated = True
+            if 'qns2_checked' in topic_data:
+                student_topic_progress.draft_qns2_checked = topic_data['qns2_checked']
+                updated = True
+            if 'qns3_text' in topic_data:
+                student_topic_progress.draft_qns3_text = topic_data['qns3_text']
+                updated = True
+            if 'qns3_checked' in topic_data:
+                student_topic_progress.draft_qns3_checked = topic_data['qns3_checked']
+                updated = True
+            if 'qns4_text' in topic_data:
+                student_topic_progress.draft_qns4_text = topic_data['qns4_text']
+                updated = True
+            if 'qns4_checked' in topic_data:
+                student_topic_progress.draft_qns4_checked = topic_data['qns4_checked']
+                updated = True
+            
+            if updated:
+                student_topic_progress.save()
+                return student_topic_progress
+        else:
+            # Final save - promote draft to final OR save new data
+            updated = False
+            
+            # If there are draft data and this is a final save, promote draft to final first
+            if student_topic_progress.has_draft_data():
+                student_topic_progress.promote_draft_to_final()
+                updated = True
+            
+            # Then update with any new data from the request
+            for field in update_fields:
+                if field in topic_data:
+                    setattr(student_topic_progress, field, topic_data[field])
+                    updated = True
+            
+            # Always update status based on grade if grade is provided
+            if 'grade' in topic_data:
+                from decimal import Decimal
+                grade = Decimal(str(topic_data['grade']))
+                if grade >= Decimal('7.0'):
+                    student_topic_progress.status = 'validated'
+                elif grade > Decimal('0.0'):
+                    student_topic_progress.status = 'in_progress'
+                else:
+                    student_topic_progress.status = 'not_started'
+                updated = True
+            
+            if updated:
+                student_topic_progress.save()
+                return student_topic_progress
         
         return None
+    
+    def _get_display_data(self, student_topic_progress, is_draft):
+        """Get display data for a topic progress, considering drafts."""
+        if is_draft and student_topic_progress.has_draft_data():
+            # For draft saves, show draft data if it exists
+            return {
+                'status': student_topic_progress.draft_status if student_topic_progress.draft_status else student_topic_progress.status,
+                'grade': student_topic_progress.draft_grade if student_topic_progress.draft_grade is not None else student_topic_progress.grade,
+                'comments_and_recommendations': student_topic_progress.draft_comments_and_recommendations if student_topic_progress.draft_comments_and_recommendations else student_topic_progress.comments_and_recommendations,
+                'qns1_checked': student_topic_progress.draft_qns1_checked if student_topic_progress.draft_qns1_checked else student_topic_progress.qns1_checked,
+                'qns2_checked': student_topic_progress.draft_qns2_checked if student_topic_progress.draft_qns2_checked else student_topic_progress.qns2_checked,
+                'qns3_checked': student_topic_progress.draft_qns3_checked if student_topic_progress.draft_qns3_checked else student_topic_progress.qns3_checked,
+                'qns4_checked': student_topic_progress.draft_qns4_checked if student_topic_progress.draft_qns4_checked else student_topic_progress.qns4_checked
+            }
+        else:
+            # For final saves or no draft data, show final data
+            return {
+                'status': student_topic_progress.status,
+                'grade': student_topic_progress.grade,
+                'comments_and_recommendations': student_topic_progress.comments_and_recommendations,
+                'qns1_checked': student_topic_progress.qns1_checked,
+                'qns2_checked': student_topic_progress.qns2_checked,
+                'qns3_checked': student_topic_progress.qns3_checked,
+                'qns4_checked': student_topic_progress.qns4_checked
+            }
     
     def _create_topic_progress_for_student_subject(self, student, subject, class_obj):
         """Create topic progress records for a student when they are assigned to a subject."""

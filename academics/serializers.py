@@ -314,6 +314,8 @@ class StudentSerializer(serializers.ModelSerializer):
             is_active=True
         ).select_related('topic', 'topic__subject').order_by('topic__id')
         
+        # Check if we should show draft data (could be used in API contexts where draft is needed)
+        show_drafts = self.context.get('show_drafts', False)
         
         return [
             {
@@ -321,19 +323,23 @@ class StudentSerializer(serializers.ModelSerializer):
                 "name": progress.topic.name,
                 "context": progress.topic.context,
                 "objectives": progress.topic.objectives,
-                "status": progress.status,  # Use student-specific status
-                "grade": progress.grade,  # Use student-specific grade
-                "comments_and_recommendations": progress.comments_and_recommendations,  # Use student-specific comments
+                "status": progress.draft_status if show_drafts and progress.has_draft_data() else progress.status,
+                "grade": progress.draft_grade if show_drafts and progress.has_draft_data() else progress.grade,
+                "comments_and_recommendations": progress.draft_comments_and_recommendations if show_drafts and progress.has_draft_data() else progress.comments_and_recommendations,
                 "subject": {
                     "id": progress.topic.subject.id,
                     "name": progress.topic.subject.name,
                     "code": progress.topic.subject.code
                 },
                 "questions": [
-                    {"text": progress.qns1_text, "checked": progress.qns1_checked},
-                    {"text": progress.qns2_text, "checked": progress.qns2_checked},
-                    {"text": progress.qns3_text, "checked": progress.qns3_checked},
-                    {"text": progress.qns4_text, "checked": progress.qns4_checked}
+                    {"text": progress.draft_qns1_text if show_drafts and progress.has_draft_data() else progress.qns1_text, 
+                     "checked": progress.draft_qns1_checked if show_drafts and progress.has_draft_data() else progress.qns1_checked},
+                    {"text": progress.draft_qns2_text if show_drafts and progress.has_draft_data() else progress.qns2_text, 
+                     "checked": progress.draft_qns2_checked if show_drafts and progress.has_draft_data() else progress.qns2_checked},
+                    {"text": progress.draft_qns3_text if show_drafts and progress.has_draft_data() else progress.qns3_text, 
+                     "checked": progress.draft_qns3_checked if show_drafts and progress.has_draft_data() else progress.qns3_checked},
+                    {"text": progress.draft_qns4_text if show_drafts and progress.has_draft_data() else progress.qns4_text, 
+                     "checked": progress.draft_qns4_checked if show_drafts and progress.has_draft_data() else progress.qns4_checked}
                 ]
             }
             for progress in student_topic_progress
@@ -649,6 +655,10 @@ class StudentSubjectsUpdateSerializer(serializers.Serializer):
         child=StudentSubjectUpdateSerializer(),
         required=True,
         help_text="List of subjects to update for the student"
+    )
+    is_draft = serializers.BooleanField(
+        default=False,
+        help_text="Whether this is a draft save (True) or final save (False)"
     )
 
     def validate_subjects(self, value):
