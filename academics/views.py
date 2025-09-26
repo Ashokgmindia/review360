@@ -90,6 +90,126 @@ class ClassViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         
         return instance
 
+    @action(detail=False, methods=['get'], url_path='college/admin')
+    @extend_schema(
+        tags=["Academics"],
+        summary="College Admin Dashboard",
+        description="Get dashboard statistics for college admin including active classes, total students, and general average",
+        responses={
+            200: {
+                'description': 'College admin dashboard statistics',
+                'type': 'object',
+                'properties': {
+                    'active_classes': {
+                        'type': 'integer',
+                        'description': 'Number of active classes'
+                    },
+                    'total_students': {
+                        'type': 'integer', 
+                        'description': 'Total number of students'
+                    },
+                    'general_average': {
+                        'type': 'number',
+                        'description': 'General average across all students and classes including zero grades'
+                    },
+                    'college_info': {
+                        'type': 'object', 
+                        'properties': {
+                            'id': {'type': 'integer'},
+                            'name': {'type': 'string'},
+                            'code': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    )
+    def admin_dashboard(self, request):
+        """Get college admin dashboard statistics."""
+        user = request.user
+        
+        # Get accessible college IDs for this user
+        college_ids = []
+        if getattr(user, "role", None) == "superadmin":
+            # Super admin can see all colleges
+            from iam.models import College
+            college_ids = list(College.objects.all().values_list('id', flat=True))
+        elif getattr(user, "role", None) == "college_admin":
+            # College admin can see their colleges  
+            college_ids = list(user.colleges.values_list("id", flat=True))
+            if hasattr(user, 'college_id') and user.college_id:
+                college_ids.append(user.college_id)
+            college_ids = list(set(college_ids))
+        
+        if not college_ids:
+            return Response({
+                "active_classes": 0,
+                "total_students": 0, 
+                "general_average": 0.0,
+                "college_info": None
+            })
+
+        # Import iam models for college info
+        from iam.models import College
+        
+        # Count active classes
+        active_classes = Class.objects.filter(
+            college_id__in=college_ids,
+            is_active=True
+        ).count()
+        
+        # Count total students from active classes
+        total_students = StudentClassEnrollment.objects.filter(
+            class_ref__college_id__in=college_ids,
+            is_active=True
+        ).distinct('student').count()
+        
+        # Calculate general average across all classes and students (including zero grades)
+        general_average = 0.0
+        all_grades = []
+        
+        if college_ids:
+            # Get all topic progress records for students in these colleges
+            topic_progress = StudentTopicProgress.objects.filter(
+                class_ref__college_id__in=college_ids,
+                is_active=True
+            )
+            
+            if topic_progress.exists():
+                all_grades = list(topic_progress.values_list('grade', flat=True))
+        
+        if all_grades:
+            general_average = round(sum(all_grades) / len(all_grades), 2)
+        
+        # Get the first college for display (or primary college)
+        college_obj = None
+        if hasattr(user, 'college_id') and user.college_id:
+            try:
+                college_obj = College.objects.get(id=user.college_id)
+            except College.DoesNotExist:
+                pass
+        
+        if not college_obj and college_ids:
+            try:
+                college_obj = College.objects.get(id=college_ids[0])
+            except College.DoesNotExist:
+                pass
+        
+        college_info = None
+        if college_obj:
+            college_info = {
+                "id": college_obj.id,
+                "name": college_obj.name,
+                "code": college_obj.code
+            }
+        
+        return Response({
+            "active_classes": active_classes,
+            "total_students": total_students,
+            "general_average": general_average,
+            "college_info": college_info
+        })
+
 
 
 @extend_schema_view(
@@ -324,6 +444,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             }
         })
 
+
     @action(detail=False, methods=['get'], url_path='class/(?P<class_id>[^/.]+)/student/(?P<student_id>[^/.]+)')
     @extend_schema(
         tags=["Academics"],
@@ -527,6 +648,7 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
 
 
 
+
 @extend_schema_view(
     list=extend_schema(tags=["Academics"]),
     retrieve=extend_schema(tags=["Academics"]),
@@ -560,6 +682,18 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     filterset_fields = ["department", "is_hod", "is_active"]
     search_fields = ["first_name", "last_name", "email", "employee_id"]
     ordering_fields = ["last_name", "first_name", "date_of_joining"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        # Only teachers can see only their own profile details
+        if getattr(user, "role", None) == "teacher":
+            # Teachers can only see their own profile
+            qs = qs.filter(user_id=user.id)
+        return qs
 
     def destroy(self, request, *args, **kwargs):
         """

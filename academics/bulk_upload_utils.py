@@ -290,11 +290,15 @@ class StudentBulkUploadProcessor(BulkUploadProcessor):
                                 class_ref=self.target_class
                             )
                             
-                            # Also update the primary class_ref for backward compatibility
-                            # Always update class_ref to the new class when adding to a new class
-                            print(f"DEBUG: Updating existing student {existing_student.id} class_ref from {existing_student.class_ref.id if existing_student.class_ref else 'None'} to {self.target_class.id}")
-                            existing_student.class_ref = self.target_class
-                            existing_student.save()
+                            # Do NOT update the primary class_ref to preserve the original class assignment
+                            # The student's primary class_ref should remain unchanged as per requirements
+                            print(f"DEBUG: Keeping existing student {existing_student.id} original class_ref: {existing_student.class_ref.id if existing_student.class_ref else 'None'}")
+                            
+                            # Only set class_ref if it's NULL, otherwise keep the original
+                            if existing_student.class_ref is None:
+                                print(f"DEBUG: Setting initial class_ref for student {existing_student.id} to {self.target_class.id}")
+                                existing_student.class_ref = self.target_class
+                                existing_student.save()
                             
                             self.existing_students_added += 1
                             self.success_count += 1

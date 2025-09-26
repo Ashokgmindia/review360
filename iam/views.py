@@ -3,6 +3,7 @@ from django.utils import timezone
 from datetime import timedelta
 from rest_framework import generics, status, viewsets, permissions, filters
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -184,6 +185,7 @@ class CollegeViewSet(viewsets.ModelViewSet):
             if college_ids:
                 return qs.filter(id__in=list(set(college_ids)))
         return qs.none()
+
 
 
 @extend_schema(tags=["IAM"])

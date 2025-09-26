@@ -75,17 +75,17 @@ class RoleBasedPermission(BasePermission):
         },
         'teacher': {
             'academics': {
-                'class': ['read'],
+                'class': ['read', 'create'],  # Teachers can see and create classes
                 'student': ['read', 'update'],  # Limited updates only
                 'teacher': ['read', 'update'],  # Own profile only
                 'department': ['read', 'update'],  # If HoD
-                'subject': ['read', 'update'],  # Own subjects
-                'topic': ['create', 'read', 'update', 'delete'],  # Topics for their subjects
+                'subject': ['read'],  # Teachers can only view subjects, not create/update
+                'topic': ['read'],  # Teachers can only view topics, not create/update
                 'importlog': ['create', 'read'],  # Own imports
             },
             'learning': {
-                'subject': ['read', 'update'],  # Own subjects
-                'topic': ['create', 'read', 'update', 'delete'],  # Topics for their subjects
+                'subject': ['read'],  # Teachers can only view subjects
+                'topic': ['read'],  # Teachers can only view topics
             },
             'followup': {
                 'followupsession': ['create', 'read', 'update', 'delete'],

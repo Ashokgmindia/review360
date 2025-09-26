@@ -24,6 +24,24 @@ class SubjectViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code"]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        # Only teachers can see subjects assigned to them
+        if getattr(user, "role", None) == "teacher":
+            try:
+                from academics.models import Teacher
+                teacher = Teacher.objects.get(user_id=user.id)
+                # Filter subjects to only show those handled by this teacher
+                qs = qs.filter(id__in=teacher.subjects_handled.filter(is_active=True).values_list('id', flat=True))
+            except Teacher.DoesNotExist:
+                # Teacher not found, return empty queryset
+                return qs.none()
+        return qs
+
 
 @extend_schema_view(
     list=extend_schema(tags=["Learning"]),
@@ -45,6 +63,22 @@ class TopicViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         qs = super().get_queryset()
+        request = getattr(self, "request", None)
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        
+        # Only teachers can see topics from subjects assigned to them
+        if getattr(user, "role", None) == "teacher":
+            try:
+                from academics.models import Teacher
+                teacher = Teacher.objects.get(user_id=user.id)
+                # Filter topics to only show those from subjects handled by this teacher
+                teacher_subjects = teacher.subjects_handled.filter(is_active=True).values_list('id', flat=True)
+                qs = qs.filter(subject_id__in=teacher_subjects)
+            except Teacher.DoesNotExist:
+                # Teacher not found, return empty queryset
+                return qs.none()
         
         # Filter by subject if subject_id is provided in query params
         subject_id = self.request.query_params.get('subject_id')
