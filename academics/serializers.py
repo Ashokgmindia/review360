@@ -355,8 +355,8 @@ class StudentSerializer(serializers.ModelSerializer):
         if not student_topic_progress.exists():
             return 0.0
         
-        # Calculate average grade from all topic grades
-        grades = [progress.grade for progress in student_topic_progress if progress.grade > 0]
+        # Calculate average grade from all topic grades (including 0 grades)
+        grades = [progress.grade for progress in student_topic_progress]
         if grades:
             return round(sum(grades) / len(grades), 2)
         else:
