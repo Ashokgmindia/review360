@@ -62,6 +62,15 @@ class TeacherAdmin(admin.ModelAdmin):
     search_fields = ("first_name", "last_name", "email", "employee_id")
     exclude = ("user",)  # Hide the user field from the form
 
+    def delete_model(self, request, obj):
+        # Call the custom delete method to ensure user is deleted too
+        obj.delete()
+
+    def delete_queryset(self, request, queryset):
+        # For bulk deletions, call delete on each object to ensure user records are deleted
+        for obj in queryset:
+            obj.delete()
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if getattr(request.user, "role", None) == User.Role.SUPERADMIN:
@@ -252,6 +261,15 @@ class StudentAdmin(admin.ModelAdmin):
     list_display = ("first_name", "last_name", "student_number", "college", "class_ref", "department", "academic_year", "is_active")
     search_fields = ("first_name", "last_name", "student_number", "email")
     exclude = ("user",)  # Hide the user field from the form
+
+    def delete_model(self, request, obj):
+        # Call the custom delete method to ensure user is deleted too
+        obj.delete()
+
+    def delete_queryset(self, request, queryset):
+        # For bulk deletions, call delete on each object to ensure user records are deleted
+        for obj in queryset:
+            obj.delete()
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

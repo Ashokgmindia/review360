@@ -71,6 +71,15 @@ class Student(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def delete(self, *args, **kwargs):
+        # Store the user reference before calling parent delete
+        user = self.user
+        # Delete the associated user if it exists FIRST (to ensure it's always deleted)
+        if user:
+            user.delete()
+        # Now delete the student instance
+        super().delete(*args, **kwargs)
+
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.first_name} {self.last_name}"
 
@@ -163,6 +172,15 @@ class Teacher(models.Model):
     # System Fields
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def delete(self, *args, **kwargs):
+        # Store the user reference before calling parent delete
+        user = self.user
+        # Delete the associated user if it exists FIRST (to ensure it's always deleted)
+        if user:
+            user.delete()
+        # Now delete the teacher instance
+        super().delete(*args, **kwargs)
 
     def __str__(self) -> str:  # pragma: no cover
         if self.employee_id:
