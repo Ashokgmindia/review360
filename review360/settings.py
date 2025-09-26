@@ -108,7 +108,7 @@ USE_TZ = True
 
 
 # Static files
-STATIC_URL = "/static/"
+STATIC_URL = "/review360/backend/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = []
 
