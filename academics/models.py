@@ -246,6 +246,7 @@ class StudentTopicProgress(models.Model):
         ('not_started', 'Not Started'),
         ('in_progress', 'In Progress'),
         ('validated', 'Validated'),
+        ('draft', 'Draft'),
     ]
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="topic_progress")
@@ -312,6 +313,7 @@ class StudentTopicProgress(models.Model):
     draft_qns4_checked = models.BooleanField(default=False, help_text="Draft Question 4 checkbox")
     
     # System Fields
+    is_draft = models.BooleanField(default=False, help_text="Whether this record is a draft")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

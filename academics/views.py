@@ -387,7 +387,11 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
         # Use DRF's pagination
         page = self.paginate_queryset(students)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            # Pass class context to serializer so it shows subjects from the correct class
+            serializer = self.get_serializer(page, many=True, context={
+                'class_context': class_obj,
+                'request': request
+            })
             paginated_response = self.get_paginated_response(serializer.data)
             
             # Add class_info to the paginated response
@@ -408,7 +412,11 @@ class StudentViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
             return paginated_response
         
         # Fallback if pagination is not configured
-        serializer = self.get_serializer(students, many=True)
+        # Pass class context to serializer so it shows subjects from the correct class
+        serializer = self.get_serializer(students, many=True, context={
+            'class_context': class_obj,
+            'request': request
+        })
         
         return Response({
             "count": len(students),
@@ -725,7 +733,7 @@ class TeacherViewSet(CollegeScopedQuerysetMixin, viewsets.ModelViewSet):
                                         'required': ['id'],
                                         'properties': {
                                             'id': {'type': 'integer', 'description': 'ID of the topic', 'example': 1},
-                                            'status': {'type': 'string', 'enum': ['not_started', 'in_progress', 'validated'], 'description': 'Topic status', 'example': 'in_progress'},
+                                            'status': {'type': 'string', 'enum': ['not_started', 'in_progress', 'validated', 'draft'], 'description': 'Topic status', 'example': 'in_progress'},
                                             'grade': {'type': 'number', 'minimum': 0, 'maximum': 10, 'description': 'Grade for the topic', 'example': 8.5},
                                             'comments_and_recommendations': {'type': 'string', 'description': 'Comments about the topic', 'example': 'Good progress'},
                                             'qns1_text': {'type': 'string', 'description': 'Question 1 text', 'example': 'Question 1 text'},
@@ -955,6 +963,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                                     qns2_text=topic.qns2_text,
                                     qns3_text=topic.qns3_text,
                                     qns4_text=topic.qns4_text,
+                                    is_draft=False,
                                 )
                             
                             # Apply role-based validation and updates to student-specific progress
@@ -1027,9 +1036,14 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
             # Save to draft fields
             updated = False
             
-            if 'status' in topic_data:
-                student_topic_progress.draft_status = topic_data['status']
-                updated = True
+            # When is_draft=True, always set status to 'draft' regardless of what's in topic_data
+            student_topic_progress.draft_status = 'draft'
+            updated = True
+            
+            # Also save any other status provided in topic_data to draft_status for reference
+            if 'status' in topic_data and topic_data['status'] != 'draft':
+                # Keep the original status in a separate field if needed, but force draft
+                pass
             if 'grade' in topic_data:
                 student_topic_progress.draft_grade = topic_data['grade']
                 updated = True
@@ -1148,6 +1162,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                         qns2_text=topic.qns2_text,
                         qns3_text=topic.qns3_text,
                         qns4_text=topic.qns4_text,
+                        is_draft=False,
                     )
                 )
         
@@ -1186,6 +1201,7 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                             qns2_text=topic.qns2_text,
                             qns3_text=topic.qns3_text,
                             qns4_text=topic.qns4_text,
+                            is_draft=False,
                         )
                     )
         

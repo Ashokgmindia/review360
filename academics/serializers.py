@@ -171,6 +171,7 @@ class ClassSerializer(serializers.ModelSerializer):
                                     qns2_text=topic.qns2_text,
                                     qns3_text=topic.qns3_text,
                                     qns4_text=topic.qns4_text,
+                                    is_draft=False,
                                 )
                             )
         
@@ -229,6 +230,7 @@ class StudentSerializer(serializers.ModelSerializer):
     subjects = serializers.SerializerMethodField()
     topics = serializers.SerializerMethodField()
     student_grade = serializers.SerializerMethodField()
+    class_ref = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
@@ -262,15 +264,31 @@ class StudentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def get_class_ref(self, obj: Student):
+        """Get class reference, showing the class context if provided, otherwise the student's primary class."""
+        # Get class context from the request context (for API calls like get_students_by_class)
+        class_context = self.context.get('class_context')
+        
+        # Use class context if provided (from API request), otherwise fall back to student's primary class
+        if class_context:
+            return class_context.id
+        return obj.class_ref.id if obj.class_ref else None
+
     def get_subjects(self, obj: Student) -> List[Dict[str, Any]]:
         """Get all subjects assigned to the student with teacher information."""
-        if not obj.class_ref:
+        # Get class context from the request context (for API calls like get_students_by_class)
+        class_context = self.context.get('class_context')
+        
+        # Use class context if provided (from API request), otherwise fall back to student's primary class
+        target_class = class_context if class_context else obj.class_ref
+        
+        if not target_class:
             return []
         
-        # Get student's assigned subjects with teacher info
+        # Get student's assigned subjects with teacher info for the specific class context
         student_subjects = StudentSubject.objects.filter(
             student=obj,
-            class_ref=obj.class_ref,
+            class_ref=target_class,
             is_active=True
         ).select_related('subject', 'teacher', 'subject__department')
         
@@ -303,14 +321,20 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_topics(self, obj: Student) -> List[Dict[str, Any]]:
         """Get all topics from subjects assigned to the student with student-specific progress."""
-        if not obj.class_ref:
+        # Get class context from the request context (for API calls like get_students_by_class)
+        class_context = self.context.get('class_context')
+        
+        # Use class context if provided (from API request), otherwise fall back to student's primary class
+        target_class = class_context if class_context else obj.class_ref
+        
+        if not target_class:
             return []
         
-        # Get student's topic progress records
+        # Get student's topic progress records for the specific class context
         from .models import StudentTopicProgress
         student_topic_progress = StudentTopicProgress.objects.filter(
             student=obj,
-            class_ref=obj.class_ref,
+            class_ref=target_class,
             is_active=True
         ).select_related('topic', 'topic__subject').order_by('topic__id')
         
@@ -347,14 +371,20 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_student_grade(self, obj: Student) -> float:
         """Calculate overall student grade from all topic grades."""
-        if not obj.class_ref:
+        # Get class context from the request context (for API calls like get_students_by_class)
+        class_context = self.context.get('class_context')
+        
+        # Use class context if provided (from API request), otherwise fall back to student's primary class
+        target_class = class_context if class_context else obj.class_ref
+        
+        if not target_class:
             return 0.0
         
-        # Get all topic progress records for this student
+        # Get all topic progress records for this student in the specific class context
         from .models import StudentTopicProgress
         student_topic_progress = StudentTopicProgress.objects.filter(
             student=obj,
-            class_ref=obj.class_ref,
+            class_ref=target_class,
             is_active=True
         )
         
