@@ -910,6 +910,9 @@ class StudentSubjectsUpdateViewSet(CollegeScopedQuerysetMixin, viewsets.GenericV
                             teacher = Teacher.objects.get(id=teacher_id, is_active=True)
                         except Teacher.DoesNotExist:
                             continue
+                    else:
+                        # If no specific teacher_id provided, use the class's teacher as fallback
+                        teacher = class_obj.teacher
                     
                     # Update or create the assignment
                     assignment, created = StudentSubject.objects.update_or_create(

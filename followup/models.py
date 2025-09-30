@@ -69,7 +69,7 @@ class FollowUpSession(models.Model):
     add_to_google_calendar = models.BooleanField(default=False, help_text="Whether to add this session to Google Calendar")
     invite_student = models.BooleanField(default=False, help_text="Whether to send email invitation to student")
     automatic_reminder = models.BooleanField(default=False, help_text="Whether to send automatic reminder 24 hours in advance")
-    academic_year = models.CharField(max_length=9)
+    academic_year = models.CharField(max_length=9, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
                     'automatic_reminder': {'type': 'boolean', 'default': False, 'description': 'Whether to send automatic reminder'},
                     'academic_year': {'type': 'string', 'description': 'Academic year'}
                 },
-                'required': ['college', 'student', 'subject', 'topic', 'teacher', 'session_datetime', 'academic_year']
+                'required': ['college', 'student', 'subject', 'topic', 'teacher', 'session_datetime']
             }
         }
     ),
